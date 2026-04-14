@@ -1,0 +1,24 @@
+{
+  "name": "@scoper/api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/env.ts",
+    "build": "echo 'no-op build'",
+    "start": "tsx src/env.ts",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "@scoper/db": "*",
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@hono/node-server": "^1.14.0",
+    "dotenv": "^17.4.1",
+    "hono": "^4.7.0",
+    "resend": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "vitest": "^3.1.0"
+  }
+}

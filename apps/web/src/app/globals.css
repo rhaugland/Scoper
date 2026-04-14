@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+@theme {
+  --color-cream: #FFF8F0;
+  --color-forest: #2D5A3D;
+  --color-forest-light: #4A7C59;
+  --color-sage: #87A878;
+  --color-sand: #E8DDD3;
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
