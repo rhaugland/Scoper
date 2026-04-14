@@ -25,6 +25,9 @@ import {
   addRisk as apiAddRisk,
   updateRisk as apiUpdateRisk,
   deleteRisk as apiDeleteRisk,
+  logActual,
+  updateActual,
+  getAccuracyReport,
 } from "@/lib/api";
 
 interface Question {
@@ -58,6 +61,29 @@ interface Risk {
   content: string;
   severity: string;
   mitigation: string | null;
+}
+
+interface ActualEntry {
+  id: string;
+  deliverable: string;
+  optimisticHours: number;
+  likelyHours: number;
+  pessimisticHours: number;
+  actualHours: number | null;
+  actualId: string | null;
+  variancePercent: number | null;
+  notes: string | null;
+}
+
+interface PhaseReport {
+  phase: string;
+  items: ActualEntry[];
+  totals: { estimatedLikely: number; actual: number | null; variancePercent: number | null };
+}
+
+interface AccuracyReport {
+  phases: PhaseReport[];
+  project: { totalEstimated: number; totalActual: number | null; variancePercent: number | null; accuracyScore: number | null };
 }
 
 function generateDummyAnswer(question: string): string {
@@ -129,6 +155,11 @@ export default function ProjectPage() {
   const [editDeliverableName, setEditDeliverableName] = useState("");
   const [addingItemToPhase, setAddingItemToPhase] = useState<string | null>(null);
   const [newItem, setNewItem] = useState({ deliverable: "", optimistic: 0, likely: 0, pessimistic: 0 });
+  const [report, setReport] = useState<AccuracyReport | null>(null);
+  const [editingActualItemId, setEditingActualItemId] = useState<string | null>(null);
+  const [editActualHours, setEditActualHours] = useState(0);
+  const [editActualNotes, setEditActualNotes] = useState("");
+  const [showNotes, setShowNotes] = useState<Set<string>>(new Set());
   const answerInputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -153,6 +184,8 @@ export default function ProjectPage() {
           setSummary(state.draft?.summary ?? "");
           if (p.status === "delivered") {
             setPhase("delivered");
+            const r = await getAccuracyReport(projectId);
+            setReport(r);
           } else if (p.status === "complete") {
             setPhase("complete");
           } else {
@@ -277,6 +310,54 @@ export default function ProjectPage() {
   async function handleDeleteScopeItem(itemId: string) {
     await deleteScopeItem(itemId);
     setScopeItems((prev) => prev.filter((item) => item.id !== itemId));
+  }
+
+  async function handleMarkDelivered() {
+    await updateProject(projectId, { status: "delivered" });
+    setProject((prev: any) => ({ ...prev, status: "delivered" }));
+    setPhase("delivered");
+    const r = await getAccuracyReport(projectId);
+    setReport(r);
+  }
+
+  async function handleLogActual(scopeItemId: string) {
+    if (editActualHours <= 0) return;
+    try {
+      await logActual(scopeItemId, editActualHours, editActualNotes || undefined);
+      const r = await getAccuracyReport(projectId);
+      setReport(r);
+      setEditingActualItemId(null);
+      setEditActualHours(0);
+      setEditActualNotes("");
+    } catch (e: any) {
+      if (e.message?.includes("already logged")) {
+        const item = report?.phases.flatMap((p) => p.items).find((i) => i.id === scopeItemId);
+        if (item?.actualId) {
+          await updateActual(item.actualId, { actualHours: editActualHours, notes: editActualNotes || undefined });
+          const r = await getAccuracyReport(projectId);
+          setReport(r);
+          setEditingActualItemId(null);
+          setEditActualHours(0);
+          setEditActualNotes("");
+        }
+      }
+    }
+  }
+
+  function varianceColor(variance: number | null): string {
+    if (variance === null) return "";
+    const abs = Math.abs(variance);
+    if (abs <= 10) return "text-green-600";
+    if (abs <= 30) return "text-yellow-600";
+    return "text-red-600";
+  }
+
+  function varianceBgColor(variance: number | null): string {
+    if (variance === null) return "bg-gray-100";
+    const abs = Math.abs(variance);
+    if (abs <= 10) return "bg-green-100";
+    if (abs <= 30) return "bg-yellow-100";
+    return "bg-red-100";
   }
 
   async function handleSaveRate() {
@@ -628,6 +709,15 @@ export default function ProjectPage() {
                   <p className="text-forest font-medium">Scope is solid.</p>
                   <p className="text-sm text-gray-600 mt-1">
                     Export your scope or copy client questions above.
+                  </p>
+                </div>
+              )}
+
+              {phase === "delivered" && (
+                <div className="bg-gray-800/10 rounded-lg p-4 text-center">
+                  <p className="font-medium text-gray-800">Project Delivered</p>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Log actual hours per deliverable to track estimate accuracy.
                   </p>
                 </div>
               )}
@@ -1192,6 +1282,168 @@ export default function ProjectPage() {
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Mark as Delivered */}
+            {phase === "complete" && (
+              <div className="border-t border-sand/30 pt-4 mt-4">
+                <button
+                  onClick={handleMarkDelivered}
+                  className="w-full px-4 py-3 bg-gray-800 text-white rounded-lg font-medium hover:bg-gray-700 transition"
+                >
+                  Mark as Delivered
+                </button>
+                <p className="text-xs text-gray-400 mt-2 text-center">
+                  Unlocks actuals tracking to compare estimates vs. reality
+                </p>
+              </div>
+            )}
+
+            {/* Actuals Tracking */}
+            {phase === "delivered" && report && (
+              <div>
+                <h2 className="font-bold text-forest mb-4">Actuals vs. Estimates</h2>
+
+                {/* Project summary */}
+                <div className="mb-6 p-4 rounded-lg border-2 border-forest/20 bg-forest/5">
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div>
+                      <div className="text-xs text-gray-500 mb-1">Estimated</div>
+                      <div className="text-lg font-semibold">{report.project.totalEstimated}h</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-500 mb-1">Actual</div>
+                      <div className="text-lg font-semibold">
+                        {report.project.totalActual !== null ? `${report.project.totalActual}h` : "—"}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-500 mb-1">Accuracy</div>
+                      <div className={`text-lg font-semibold ${report.project.accuracyScore !== null ? (report.project.accuracyScore >= 70 ? "text-green-600" : report.project.accuracyScore >= 40 ? "text-yellow-600" : "text-red-600") : ""}`}>
+                        {report.project.accuracyScore !== null ? `${report.project.accuracyScore}/100` : "—"}
+                      </div>
+                    </div>
+                  </div>
+                  {report.project.variancePercent !== null && (
+                    <p className="text-sm text-gray-600 text-center mt-3">
+                      This project came in {Math.abs(report.project.variancePercent).toFixed(1)}% {report.project.variancePercent > 0 ? "over" : report.project.variancePercent < 0 ? "under" : "right on"} the realistic estimate
+                    </p>
+                  )}
+                </div>
+
+                {/* Per-phase sections */}
+                {report.phases.map((phaseData) => (
+                  <div key={phaseData.phase} className="mb-6">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="font-medium text-gray-900">{phaseData.phase}</h3>
+                      {phaseData.totals.variancePercent !== null && (
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded ${varianceBgColor(phaseData.totals.variancePercent)} ${varianceColor(phaseData.totals.variancePercent)}`}>
+                          {phaseData.totals.variancePercent > 0 ? "+" : ""}{phaseData.totals.variancePercent.toFixed(1)}%
+                        </span>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      {phaseData.items.map((item) => (
+                        <div key={item.id}>
+                          <div className="flex items-center justify-between text-sm py-1.5 px-2 rounded hover:bg-cream/50 group">
+                            <span className="text-gray-700 flex-1">{item.deliverable}</span>
+                            <div className="flex items-center gap-3 text-xs text-gray-500">
+                              <span>{item.optimisticHours} — {item.likelyHours} — {item.pessimisticHours}h</span>
+                              <span className="text-gray-300">|</span>
+                              {item.actualHours !== null ? (
+                                <span
+                                  className={`font-medium cursor-pointer ${varianceColor(item.variancePercent)}`}
+                                  onClick={() => {
+                                    setEditingActualItemId(item.id);
+                                    setEditActualHours(item.actualHours!);
+                                    setEditActualNotes(item.notes ?? "");
+                                  }}
+                                  title="Click to edit"
+                                >
+                                  {item.actualHours}h actual ({item.variancePercent! > 0 ? "+" : ""}{item.variancePercent!.toFixed(1)}%)
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={() => {
+                                    setEditingActualItemId(item.id);
+                                    setEditActualHours(item.likelyHours);
+                                    setEditActualNotes("");
+                                  }}
+                                  className="text-forest hover:text-forest-light font-medium"
+                                >
+                                  Log actual
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Inline actual entry/edit */}
+                          {editingActualItemId === item.id && (
+                            <div className="mx-2 mb-2 p-3 bg-cream/50 rounded-lg border border-sand/50">
+                              <div className="flex items-center gap-3 mb-2">
+                                <div className="flex-1">
+                                  <label className="text-xs text-gray-500 block mb-1">Actual hours</label>
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    value={editActualHours}
+                                    onChange={(e) => setEditActualHours(parseInt(e.target.value) || 0)}
+                                    autoFocus
+                                    onKeyDown={(e) => { if (e.key === "Enter") handleLogActual(item.id); if (e.key === "Escape") setEditingActualItemId(null); }}
+                                    className="w-full px-2 py-1 text-sm border border-sand rounded bg-white focus:outline-none focus:ring-1 focus:ring-forest"
+                                  />
+                                </div>
+                                <div className="text-xs text-gray-400 pt-4">
+                                  vs. {item.likelyHours}h estimated
+                                </div>
+                              </div>
+                              {showNotes.has(item.id) || editActualNotes ? (
+                                <div className="mb-2">
+                                  <label className="text-xs text-gray-500 block mb-1">Notes (why over/under?)</label>
+                                  <input
+                                    value={editActualNotes}
+                                    onChange={(e) => setEditActualNotes(e.target.value)}
+                                    placeholder="e.g., Extra stakeholder meetings, simpler than expected..."
+                                    className="w-full px-2 py-1 text-xs border border-sand rounded bg-white focus:outline-none focus:ring-1 focus:ring-forest"
+                                  />
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => setShowNotes((prev) => new Set([...prev, item.id]))}
+                                  className="text-xs text-gray-400 hover:text-forest mb-2"
+                                >
+                                  + add note
+                                </button>
+                              )}
+                              <div className="flex justify-end gap-2">
+                                <button onClick={() => setEditingActualItemId(null)} className="text-xs text-gray-400 hover:text-gray-600">Cancel</button>
+                                <button
+                                  onClick={() => handleLogActual(item.id)}
+                                  disabled={editActualHours <= 0}
+                                  className="text-xs text-forest font-medium disabled:opacity-50"
+                                >
+                                  {item.actualHours !== null ? "Update" : "Save"}
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex justify-between text-xs text-gray-500 mt-2 px-2 pt-1 border-t border-sand/30">
+                      <span className="font-medium">{phaseData.phase} subtotal</span>
+                      <span>
+                        {phaseData.totals.estimatedLikely}h est.
+                        {phaseData.totals.actual !== null && (
+                          <span className={`ml-2 font-medium ${varianceColor(phaseData.totals.variancePercent)}`}>
+                            {phaseData.totals.actual}h actual
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
