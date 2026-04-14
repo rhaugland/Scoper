@@ -44,6 +44,7 @@ export const getProject = (id: string) =>
 export const updateProject = (id: string, data: {
   name?: string;
   clientName?: string;
+  status?: string;
   blendedRate?: number;
   marginPercent?: number;
   weeklyCapacity?: number;
@@ -166,3 +167,19 @@ export const exportMarkdown = (projectId: string) =>
 
 export const exportQuestions = (projectId: string) =>
   request<string>(`/api/export/${projectId}/questions`);
+
+// Actuals
+export const logActual = (scopeItemId: string, actualHours: number, notes?: string) =>
+  request<any>(`/api/actuals/${scopeItemId}`, {
+    method: "POST",
+    body: JSON.stringify({ actualHours, notes }),
+  });
+
+export const updateActual = (id: string, data: { actualHours?: number; notes?: string }) =>
+  request<any>(`/api/actuals/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+
+export const getAccuracyReport = (projectId: string) =>
+  request<any>(`/api/actuals/${projectId}/report`);
