@@ -1,0 +1,126 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { listProjects, createProject, getMe } from "@/lib/api";
+
+interface Project {
+  id: string;
+  name: string;
+  clientName: string | null;
+  status: string;
+  updatedAt: string;
+}
+
+export default function DashboardPage() {
+  const router = useRouter();
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [showNew, setShowNew] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newClient, setNewClient] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getMe()
+      .then(() => listProjects())
+      .then(setProjects)
+      .catch(() => router.push("/login"))
+      .finally(() => setLoading(false));
+  }, [router]);
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    const project = await createProject(newName, newClient || undefined);
+    setProjects([project, ...projects]);
+    setShowNew(false);
+    setNewName("");
+    setNewClient("");
+    router.push(`/project/${project.id}`);
+  }
+
+  const statusColors: Record<string, string> = {
+    draft: "bg-sand text-gray-700",
+    scoping: "bg-sage/30 text-forest",
+    complete: "bg-forest/20 text-forest",
+    proposal_sent: "bg-forest text-white",
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-cream flex items-center justify-center">
+        <p className="text-gray-500">Loading...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-cream">
+      <div className="max-w-3xl mx-auto px-4 py-8">
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-2xl font-bold text-forest">Scoper</h1>
+          <button
+            onClick={() => setShowNew(true)}
+            className="px-4 py-2 bg-forest text-white rounded-lg hover:bg-forest-light transition"
+          >
+            New project
+          </button>
+        </div>
+
+        {showNew && (
+          <form onSubmit={handleCreate} className="mb-6 p-4 bg-white rounded-lg border border-sand space-y-3">
+            <input
+              type="text"
+              placeholder="Project name"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              required
+              className="w-full px-3 py-2 rounded border border-sand focus:outline-none focus:ring-2 focus:ring-forest"
+            />
+            <input
+              type="text"
+              placeholder="Client name (optional)"
+              value={newClient}
+              onChange={(e) => setNewClient(e.target.value)}
+              className="w-full px-3 py-2 rounded border border-sand focus:outline-none focus:ring-2 focus:ring-forest"
+            />
+            <div className="flex gap-2">
+              <button type="submit" className="px-4 py-2 bg-forest text-white rounded hover:bg-forest-light transition">
+                Create
+              </button>
+              <button type="button" onClick={() => setShowNew(false)} className="px-4 py-2 text-gray-600 hover:text-gray-900">
+                Cancel
+              </button>
+            </div>
+          </form>
+        )}
+
+        {projects.length === 0 ? (
+          <div className="text-center py-16 text-gray-500">
+            <p className="text-lg mb-2">No projects yet</p>
+            <p>Create your first project to start scoping.</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {projects.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => router.push(`/project/${p.id}`)}
+                className="w-full text-left p-4 bg-white rounded-lg border border-sand hover:border-forest/30 transition flex items-center justify-between"
+              >
+                <div>
+                  <span className="font-medium text-gray-900">{p.name}</span>
+                  {p.clientName && (
+                    <span className="ml-2 text-gray-500">— {p.clientName}</span>
+                  )}
+                </div>
+                <span className={`text-xs px-2 py-1 rounded-full ${statusColors[p.status] ?? "bg-gray-100"}`}>
+                  {p.status.replace("_", " ")}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
