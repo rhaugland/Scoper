@@ -155,6 +155,7 @@ export default function ProjectPage() {
   const [editDeliverableName, setEditDeliverableName] = useState("");
   const [addingItemToPhase, setAddingItemToPhase] = useState<string | null>(null);
   const [newItem, setNewItem] = useState({ deliverable: "", optimistic: 0, likely: 0, pessimistic: 0 });
+  const [leftPanelOpen, setLeftPanelOpen] = useState(true);
   const [report, setReport] = useState<AccuracyReport | null>(null);
   const [editingActualItemId, setEditingActualItemId] = useState<string | null>(null);
   const [editActualHours, setEditActualHours] = useState(0);
@@ -575,7 +576,7 @@ export default function ProjectPage() {
       ) : (
         <div className="flex h-[calc(100vh-57px)]">
           {/* Left: Chat */}
-          <div className="w-1/2 border-r border-sand flex flex-col">
+          <div className={`${leftPanelOpen ? "w-1/2" : "w-0"} border-r border-sand flex flex-col transition-all duration-300 overflow-hidden`}>
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               <div className="bg-forest/10 rounded-lg p-4">
                 <div className="text-xs text-forest font-medium mb-1">Draft Summary</div>
@@ -727,73 +728,24 @@ export default function ProjectPage() {
           </div>
 
           {/* Right: Scope view */}
-          <div className="w-1/2 overflow-y-auto p-4 bg-white">
-            <h2 className="font-bold text-forest mb-4">Scope</h2>
-
-            {/* Rate Config */}
-            <div className="mb-6 p-3 bg-cream/30 rounded-lg border border-sand/50">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide">Rate Config</h3>
-                {!editingRate ? (
-                  <button
-                    onClick={() => setEditingRate(true)}
-                    className="text-xs text-gray-400 hover:text-forest transition"
-                  >
-                    {rateConfig.blendedRate ? "Edit" : "Set rate"}
-                  </button>
-                ) : (
-                  <div className="flex gap-2">
-                    <button onClick={() => setEditingRate(false)} className="text-xs text-gray-400 hover:text-gray-600">Cancel</button>
-                    <button onClick={handleSaveRate} className="text-xs text-forest hover:text-forest-light font-medium">Save</button>
-                  </div>
-                )}
-              </div>
-              {editingRate ? (
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className="text-xs text-gray-500 block mb-1">Rate ($/hr)</label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={rateConfig.blendedRate / 100 || ""}
-                      onChange={(e) => setRateConfig({ ...rateConfig, blendedRate: Math.round(parseFloat(e.target.value || "0") * 100) })}
-                      className="w-full px-2 py-1 text-sm border border-sand rounded bg-white focus:outline-none focus:ring-1 focus:ring-forest"
-                      placeholder="150"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-500 block mb-1">Margin %</label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={rateConfig.marginPercent || ""}
-                      onChange={(e) => setRateConfig({ ...rateConfig, marginPercent: parseInt(e.target.value || "0") })}
-                      className="w-full px-2 py-1 text-sm border border-sand rounded bg-white focus:outline-none focus:ring-1 focus:ring-forest"
-                      placeholder="0"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-500 block mb-1">Hrs/week</label>
-                    <input
-                      type="number"
-                      min={1}
-                      value={rateConfig.weeklyCapacity}
-                      onChange={(e) => setRateConfig({ ...rateConfig, weeklyCapacity: parseInt(e.target.value || "30") })}
-                      className="w-full px-2 py-1 text-sm border border-sand rounded bg-white focus:outline-none focus:ring-1 focus:ring-forest"
-                      placeholder="30"
-                    />
-                  </div>
-                </div>
-              ) : rateConfig.blendedRate ? (
-                <div className="text-sm text-gray-600">
-                  ${(rateConfig.blendedRate / 100).toFixed(0)}/hr
-                  {rateConfig.marginPercent ? ` + ${rateConfig.marginPercent}% margin` : ""}
-                  {" · "}{rateConfig.weeklyCapacity}hrs/week
-                </div>
-              ) : (
-                <div className="text-sm text-gray-400 italic">No rate set — set to see pricing</div>
-              )}
+          <div className={`${leftPanelOpen ? "w-1/2" : "flex-1"} overflow-y-auto p-4 bg-white transition-all duration-300`}>
+            <div className="flex items-center gap-3 mb-1">
+              <button
+                onClick={() => setLeftPanelOpen(!leftPanelOpen)}
+                className="text-gray-400 hover:text-forest transition"
+                title={leftPanelOpen ? "Expand scope view" : "Show questions"}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+                  {leftPanelOpen ? (
+                    <path fillRule="evenodd" d="M15 10a.75.75 0 01-.75.75H7.612l2.158 1.96a.75.75 0 11-1.04 1.08l-3.5-3.25a.75.75 0 010-1.08l3.5-3.25a.75.75 0 111.04 1.08L7.612 9.25h6.638A.75.75 0 0115 10z" clipRule="evenodd" />
+                  ) : (
+                    <path fillRule="evenodd" d="M5 10a.75.75 0 01.75-.75h6.638L10.23 7.29a.75.75 0 111.04-1.08l3.5 3.25a.75.75 0 010 1.08l-3.5 3.25a.75.75 0 11-1.04-1.08l2.158-1.96H5.75A.75.75 0 015 10z" clipRule="evenodd" />
+                  )}
+                </svg>
+              </button>
+              <h2 className="font-bold text-forest">Scope</h2>
             </div>
+            <p className="text-xs text-gray-400 mb-4 ml-8">Click phase names, deliverables, or hour estimates to edit</p>
 
             {Array.from(phases).map(([phaseName, items]) => {
               const phaseOptimistic = items.reduce((s, i) => s + i.optimisticHours, 0);
@@ -992,6 +944,71 @@ export default function ProjectPage() {
                 </div>
               );
             })}
+
+            {/* Rate Config */}
+            <div className="mb-6 p-3 bg-cream/30 rounded-lg border border-sand/50">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide">Rate Config</h3>
+                {!editingRate ? (
+                  <button
+                    onClick={() => setEditingRate(true)}
+                    className="text-xs text-gray-400 hover:text-forest transition"
+                  >
+                    {rateConfig.blendedRate ? "Edit" : "Set rate"}
+                  </button>
+                ) : (
+                  <div className="flex gap-2">
+                    <button onClick={() => setEditingRate(false)} className="text-xs text-gray-400 hover:text-gray-600">Cancel</button>
+                    <button onClick={handleSaveRate} className="text-xs text-forest hover:text-forest-light font-medium">Save</button>
+                  </div>
+                )}
+              </div>
+              {editingRate ? (
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">Rate ($/hr)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={rateConfig.blendedRate / 100 || ""}
+                      onChange={(e) => setRateConfig({ ...rateConfig, blendedRate: Math.round(parseFloat(e.target.value || "0") * 100) })}
+                      className="w-full px-2 py-1 text-sm border border-sand rounded bg-white focus:outline-none focus:ring-1 focus:ring-forest"
+                      placeholder="150"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">Margin %</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={rateConfig.marginPercent || ""}
+                      onChange={(e) => setRateConfig({ ...rateConfig, marginPercent: parseInt(e.target.value || "0") })}
+                      className="w-full px-2 py-1 text-sm border border-sand rounded bg-white focus:outline-none focus:ring-1 focus:ring-forest"
+                      placeholder="0"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">Hrs/week</label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={rateConfig.weeklyCapacity}
+                      onChange={(e) => setRateConfig({ ...rateConfig, weeklyCapacity: parseInt(e.target.value || "30") })}
+                      className="w-full px-2 py-1 text-sm border border-sand rounded bg-white focus:outline-none focus:ring-1 focus:ring-forest"
+                      placeholder="30"
+                    />
+                  </div>
+                </div>
+              ) : rateConfig.blendedRate ? (
+                <div className="text-sm text-gray-600">
+                  ${(rateConfig.blendedRate / 100).toFixed(0)}/hr
+                  {rateConfig.marginPercent ? ` + ${rateConfig.marginPercent}% margin` : ""}
+                  {" · "}{rateConfig.weeklyCapacity}hrs/week
+                </div>
+              ) : (
+                <div className="text-sm text-gray-400 italic">No rate set — set to see pricing</div>
+              )}
+            </div>
 
             {scopeItems.length > 0 && (
               <div className="border-t-2 border-forest/20 pt-4 mb-6">
