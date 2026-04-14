@@ -106,6 +106,38 @@ export async function generateProposal(
   return res.blob();
 }
 
+// Assumptions
+export const addAssumption = (scopeId: string, content: string, status?: string) =>
+  request<any>(`/api/scoping/assumptions`, {
+    method: "POST",
+    body: JSON.stringify({ scopeId, content, status }),
+  });
+
+export const updateAssumption = (id: string, data: { content?: string; status?: string }) =>
+  request<any>(`/api/scoping/assumptions/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+
+export const deleteAssumption = (id: string) =>
+  request<any>(`/api/scoping/assumptions/${id}`, { method: "DELETE" });
+
+// Risks
+export const addRisk = (scopeId: string, content: string, severity: string, mitigation?: string) =>
+  request<any>(`/api/scoping/risks`, {
+    method: "POST",
+    body: JSON.stringify({ scopeId, content, severity, mitigation }),
+  });
+
+export const updateRisk = (id: string, data: { content?: string; severity?: string; mitigation?: string }) =>
+  request<any>(`/api/scoping/risks/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+
+export const deleteRisk = (id: string) =>
+  request<any>(`/api/scoping/risks/${id}`, { method: "DELETE" });
+
 // Export
 export const exportMarkdown = (projectId: string) =>
   request<string>(`/api/export/${projectId}/markdown`);

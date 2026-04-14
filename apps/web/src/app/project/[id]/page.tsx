@@ -15,6 +15,12 @@ import {
   exportQuestions,
   updateProject,
   generateProposal,
+  addAssumption as apiAddAssumption,
+  updateAssumption as apiUpdateAssumption,
+  deleteAssumption as apiDeleteAssumption,
+  addRisk as apiAddRisk,
+  updateRisk as apiUpdateRisk,
+  deleteRisk as apiDeleteRisk,
 } from "@/lib/api";
 
 interface Question {
@@ -105,6 +111,14 @@ export default function ProjectPage() {
   const [proposalPricingMode, setProposalPricingMode] = useState<"per_phase" | "retainer">("per_phase");
   const [retainerMonths, setRetainerMonths] = useState(3);
   const [showProposalOptions, setShowProposalOptions] = useState(false);
+  const [editingAssumptionId, setEditingAssumptionId] = useState<string | null>(null);
+  const [editAssumption, setEditAssumption] = useState({ content: "", status: "unresolved" });
+  const [addingAssumption, setAddingAssumption] = useState(false);
+  const [newAssumption, setNewAssumption] = useState("");
+  const [editingRiskId, setEditingRiskId] = useState<string | null>(null);
+  const [editRisk, setEditRisk] = useState({ content: "", severity: "medium", mitigation: "" });
+  const [addingRisk, setAddingRisk] = useState(false);
+  const [newRisk, setNewRisk] = useState({ content: "", severity: "medium", mitigation: "" });
   const answerInputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -243,6 +257,42 @@ export default function ProjectPage() {
     if (!rateConfig.blendedRate) return "";
     const rate = rateConfig.blendedRate * (1 + (rateConfig.marginPercent || 0) / 100);
     return `$${((hours * rate) / 100).toLocaleString()}`;
+  }
+
+  // Assumption handlers
+  async function handleSaveAssumption(id: string) {
+    await apiUpdateAssumption(id, editAssumption);
+    setAssumptions((prev) => prev.map((a) => a.id === id ? { ...a, ...editAssumption } : a));
+    setEditingAssumptionId(null);
+  }
+  async function handleAddAssumption() {
+    if (!newAssumption.trim() || !scopeId) return;
+    const created = await apiAddAssumption(scopeId, newAssumption, "unresolved");
+    setAssumptions((prev) => [...prev, created]);
+    setNewAssumption("");
+    setAddingAssumption(false);
+  }
+  async function handleDeleteAssumption(id: string) {
+    await apiDeleteAssumption(id);
+    setAssumptions((prev) => prev.filter((a) => a.id !== id));
+  }
+
+  // Risk handlers
+  async function handleSaveRisk(id: string) {
+    await apiUpdateRisk(id, editRisk);
+    setRisks((prev) => prev.map((r) => r.id === id ? { ...r, content: editRisk.content, severity: editRisk.severity, mitigation: editRisk.mitigation || null } : r));
+    setEditingRiskId(null);
+  }
+  async function handleAddRisk() {
+    if (!newRisk.content.trim() || !scopeId) return;
+    const created = await apiAddRisk(scopeId, newRisk.content, newRisk.severity, newRisk.mitigation || undefined);
+    setRisks((prev) => [...prev, created]);
+    setNewRisk({ content: "", severity: "medium", mitigation: "" });
+    setAddingRisk(false);
+  }
+  async function handleDeleteRisk(id: string) {
+    await apiDeleteRisk(id);
+    setRisks((prev) => prev.filter((r) => r.id !== id));
   }
 
   async function handleAnswerAllAndFinish() {
@@ -743,43 +793,186 @@ export default function ProjectPage() {
               </div>
             )}
 
-            {assumptions.length > 0 && (
-              <div className="mb-6">
-                <h3 className="font-medium text-gray-900 mb-2">Assumptions</h3>
-                <div className="space-y-1">
-                  {assumptions.map((a) => (
-                    <div key={a.id} className="flex items-center gap-2 text-sm py-1">
-                      <span className={`w-2 h-2 rounded-full ${
-                        a.status === "accepted" ? "bg-green-500" :
-                        a.status === "rejected" ? "bg-red-500" :
-                        "bg-yellow-500"
-                      }`} />
-                      <span className="text-gray-700">{a.content}</span>
-                    </div>
-                  ))}
-                </div>
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-medium text-gray-900">Assumptions</h3>
+                <button
+                  onClick={() => setAddingAssumption(true)}
+                  className="text-xs text-gray-400 hover:text-forest transition"
+                >
+                  + Add
+                </button>
               </div>
-            )}
+              <div className="space-y-1">
+                {assumptions.map((a) => (
+                  <div key={a.id}>
+                    {editingAssumptionId === a.id ? (
+                      <div className="p-2 bg-cream/50 rounded-lg border border-sand/50 space-y-2">
+                        <input
+                          value={editAssumption.content}
+                          onChange={(e) => setEditAssumption({ ...editAssumption, content: e.target.value })}
+                          className="w-full px-2 py-1 text-sm border border-sand rounded bg-white focus:outline-none focus:ring-1 focus:ring-forest"
+                        />
+                        <div className="flex items-center gap-2">
+                          <select
+                            value={editAssumption.status}
+                            onChange={(e) => setEditAssumption({ ...editAssumption, status: e.target.value })}
+                            className="px-2 py-1 text-xs border border-sand rounded bg-white"
+                          >
+                            <option value="unresolved">Unresolved</option>
+                            <option value="accepted">Accepted</option>
+                            <option value="rejected">Rejected</option>
+                          </select>
+                          <div className="flex-1" />
+                          <button onClick={() => handleDeleteAssumption(a.id)} className="text-xs text-red-400 hover:text-red-600">Delete</button>
+                          <button onClick={() => setEditingAssumptionId(null)} className="text-xs text-gray-400 hover:text-gray-600">Cancel</button>
+                          <button onClick={() => handleSaveAssumption(a.id)} className="text-xs text-forest font-medium">Save</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        className="flex items-center gap-2 text-sm py-1 group cursor-pointer hover:bg-cream/30 rounded px-1"
+                        onClick={() => {
+                          setEditingAssumptionId(a.id);
+                          setEditAssumption({ content: a.content, status: a.status });
+                        }}
+                      >
+                        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                          a.status === "accepted" ? "bg-green-500" :
+                          a.status === "rejected" ? "bg-red-500" :
+                          "bg-yellow-500"
+                        }`} />
+                        <span className="text-gray-700 flex-1">{a.content}</span>
+                        <span className="opacity-0 group-hover:opacity-100 text-xs text-gray-400 transition-opacity">edit</span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {addingAssumption && (
+                  <div className="p-2 bg-cream/50 rounded-lg border border-sand/50 space-y-2">
+                    <input
+                      value={newAssumption}
+                      onChange={(e) => setNewAssumption(e.target.value)}
+                      placeholder="New assumption..."
+                      autoFocus
+                      onKeyDown={(e) => { if (e.key === "Enter" && newAssumption.trim()) handleAddAssumption(); }}
+                      className="w-full px-2 py-1 text-sm border border-sand rounded bg-white focus:outline-none focus:ring-1 focus:ring-forest"
+                    />
+                    <div className="flex justify-end gap-2">
+                      <button onClick={() => { setAddingAssumption(false); setNewAssumption(""); }} className="text-xs text-gray-400 hover:text-gray-600">Cancel</button>
+                      <button onClick={handleAddAssumption} disabled={!newAssumption.trim()} className="text-xs text-forest font-medium disabled:opacity-50">Add</button>
+                    </div>
+                  </div>
+                )}
+                {assumptions.length === 0 && !addingAssumption && (
+                  <div className="text-sm text-gray-400 italic">No assumptions yet</div>
+                )}
+              </div>
+            </div>
 
-            {risks.length > 0 && (
-              <div className="mb-6">
-                <h3 className="font-medium text-gray-900 mb-2">Risks</h3>
-                <div className="space-y-1">
-                  {risks.map((r) => (
-                    <div key={r.id} className="text-sm py-1">
-                      <span className={`text-xs font-medium mr-2 ${
-                        r.severity === "high" ? "text-red-600" :
-                        r.severity === "medium" ? "text-yellow-600" :
-                        "text-gray-500"
-                      }`}>
-                        {r.severity.toUpperCase()}
-                      </span>
-                      <span className="text-gray-700">{r.content}</span>
-                    </div>
-                  ))}
-                </div>
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-medium text-gray-900">Risks</h3>
+                <button
+                  onClick={() => setAddingRisk(true)}
+                  className="text-xs text-gray-400 hover:text-forest transition"
+                >
+                  + Add
+                </button>
               </div>
-            )}
+              <div className="space-y-1">
+                {risks.map((r) => (
+                  <div key={r.id}>
+                    {editingRiskId === r.id ? (
+                      <div className="p-2 bg-cream/50 rounded-lg border border-sand/50 space-y-2">
+                        <input
+                          value={editRisk.content}
+                          onChange={(e) => setEditRisk({ ...editRisk, content: e.target.value })}
+                          placeholder="Risk description..."
+                          className="w-full px-2 py-1 text-sm border border-sand rounded bg-white focus:outline-none focus:ring-1 focus:ring-forest"
+                        />
+                        <div className="flex gap-2">
+                          <select
+                            value={editRisk.severity}
+                            onChange={(e) => setEditRisk({ ...editRisk, severity: e.target.value })}
+                            className="px-2 py-1 text-xs border border-sand rounded bg-white"
+                          >
+                            <option value="low">Low</option>
+                            <option value="medium">Medium</option>
+                            <option value="high">High</option>
+                          </select>
+                          <input
+                            value={editRisk.mitigation}
+                            onChange={(e) => setEditRisk({ ...editRisk, mitigation: e.target.value })}
+                            placeholder="Mitigation (optional)"
+                            className="flex-1 px-2 py-1 text-xs border border-sand rounded bg-white focus:outline-none focus:ring-1 focus:ring-forest"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1" />
+                          <button onClick={() => handleDeleteRisk(r.id)} className="text-xs text-red-400 hover:text-red-600">Delete</button>
+                          <button onClick={() => setEditingRiskId(null)} className="text-xs text-gray-400 hover:text-gray-600">Cancel</button>
+                          <button onClick={() => handleSaveRisk(r.id)} className="text-xs text-forest font-medium">Save</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        className="text-sm py-1 group cursor-pointer hover:bg-cream/30 rounded px-1 flex items-center"
+                        onClick={() => {
+                          setEditingRiskId(r.id);
+                          setEditRisk({ content: r.content, severity: r.severity, mitigation: r.mitigation ?? "" });
+                        }}
+                      >
+                        <span className={`text-xs font-medium mr-2 flex-shrink-0 ${
+                          r.severity === "high" ? "text-red-600" :
+                          r.severity === "medium" ? "text-yellow-600" :
+                          "text-gray-500"
+                        }`}>
+                          {r.severity.toUpperCase()}
+                        </span>
+                        <span className="text-gray-700 flex-1">{r.content}</span>
+                        <span className="opacity-0 group-hover:opacity-100 text-xs text-gray-400 transition-opacity ml-2">edit</span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {addingRisk && (
+                  <div className="p-2 bg-cream/50 rounded-lg border border-sand/50 space-y-2">
+                    <input
+                      value={newRisk.content}
+                      onChange={(e) => setNewRisk({ ...newRisk, content: e.target.value })}
+                      placeholder="Risk description..."
+                      autoFocus
+                      className="w-full px-2 py-1 text-sm border border-sand rounded bg-white focus:outline-none focus:ring-1 focus:ring-forest"
+                    />
+                    <div className="flex gap-2">
+                      <select
+                        value={newRisk.severity}
+                        onChange={(e) => setNewRisk({ ...newRisk, severity: e.target.value })}
+                        className="px-2 py-1 text-xs border border-sand rounded bg-white"
+                      >
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                      </select>
+                      <input
+                        value={newRisk.mitigation}
+                        onChange={(e) => setNewRisk({ ...newRisk, mitigation: e.target.value })}
+                        placeholder="Mitigation (optional)"
+                        className="flex-1 px-2 py-1 text-xs border border-sand rounded bg-white focus:outline-none focus:ring-1 focus:ring-forest"
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <button onClick={() => { setAddingRisk(false); setNewRisk({ content: "", severity: "medium", mitigation: "" }); }} className="text-xs text-gray-400 hover:text-gray-600">Cancel</button>
+                      <button onClick={handleAddRisk} disabled={!newRisk.content.trim()} className="text-xs text-forest font-medium disabled:opacity-50">Add</button>
+                    </div>
+                  </div>
+                )}
+                {risks.length === 0 && !addingRisk && (
+                  <div className="text-sm text-gray-400 italic">No risks flagged yet</div>
+                )}
+              </div>
+            </div>
 
             {/* Generate Proposal */}
             {phase === "complete" && (

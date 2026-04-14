@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { eq, and, isNull } from "drizzle-orm";
-import { db, scopeItems, questions, scopes, projects } from "@scoper/db";
+import { db, scopeItems, questions, scopes, projects, assumptions, risks } from "@scoper/db";
 import { requireAuth } from "../middleware/auth";
 import { startScopingSession, answerQuestion, getCurrentScopeState } from "../services/scope-builder";
 
@@ -99,6 +99,98 @@ scopingRouter.patch("/items/:itemId", async (c) => {
   } catch (e: any) {
     return c.json({ error: e.message }, 400);
   }
+});
+
+// Add an assumption
+scopingRouter.post("/assumptions", async (c) => {
+  const { scopeId, content, status } = await c.req.json<{
+    scopeId: string;
+    content: string;
+    status?: string;
+  }>();
+  try {
+    const [created] = await db
+      .insert(assumptions)
+      .values({ scopeId, content, status: (status as any) ?? "unresolved" })
+      .returning();
+    return c.json(created, 201);
+  } catch (e: any) {
+    return c.json({ error: e.message }, 400);
+  }
+});
+
+// Update an assumption
+scopingRouter.patch("/assumptions/:id", async (c) => {
+  const id = c.req.param("id");
+  const body = await c.req.json<{ content?: string; status?: string }>();
+  try {
+    const [updated] = await db
+      .update(assumptions)
+      .set({
+        ...(body.content !== undefined && { content: body.content }),
+        ...(body.status !== undefined && { status: body.status as any }),
+      })
+      .where(eq(assumptions.id, id))
+      .returning();
+    if (!updated) return c.json({ error: "Not found" }, 404);
+    return c.json(updated);
+  } catch (e: any) {
+    return c.json({ error: e.message }, 400);
+  }
+});
+
+// Delete an assumption
+scopingRouter.delete("/assumptions/:id", async (c) => {
+  const id = c.req.param("id");
+  await db.delete(assumptions).where(eq(assumptions.id, id));
+  return c.json({ ok: true });
+});
+
+// Add a risk
+scopingRouter.post("/risks", async (c) => {
+  const { scopeId, content, severity, mitigation } = await c.req.json<{
+    scopeId: string;
+    content: string;
+    severity: string;
+    mitigation?: string;
+  }>();
+  try {
+    const [created] = await db
+      .insert(risks)
+      .values({ scopeId, content, severity: severity as any, mitigation: mitigation ?? null })
+      .returning();
+    return c.json(created, 201);
+  } catch (e: any) {
+    return c.json({ error: e.message }, 400);
+  }
+});
+
+// Update a risk
+scopingRouter.patch("/risks/:id", async (c) => {
+  const id = c.req.param("id");
+  const body = await c.req.json<{ content?: string; severity?: string; mitigation?: string }>();
+  try {
+    const [updated] = await db
+      .update(risks)
+      .set({
+        ...(body.content !== undefined && { content: body.content }),
+        ...(body.severity !== undefined && { severity: body.severity as any }),
+        ...(body.mitigation !== undefined && { mitigation: body.mitigation }),
+      })
+      .where(eq(risks.id, id))
+      .returning();
+    if (!updated) return c.json({ error: "Not found" }, 404);
+    return c.json(updated);
+  } catch (e: any) {
+    return c.json({ error: e.message }, 400);
+  }
+});
+
+// Delete a risk
+scopingRouter.delete("/risks/:id", async (c) => {
+  const id = c.req.param("id");
+  await db.delete(risks).where(eq(risks.id, id));
+  return c.json({ ok: true });
 });
 
 export default scopingRouter;
