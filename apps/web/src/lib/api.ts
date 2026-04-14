@@ -82,10 +82,32 @@ export const completeScope = (scopeId: string, answers: { questionId: string; an
     body: JSON.stringify({ answers }),
   });
 
-export const updateScopeItem = (itemId: string, hours: { optimisticHours?: number; likelyHours?: number; pessimisticHours?: number }) =>
+export const updateScopeItem = (itemId: string, data: {
+  optimisticHours?: number;
+  likelyHours?: number;
+  pessimisticHours?: number;
+  phase?: string;
+  deliverable?: string;
+  sortOrder?: number;
+}) =>
   request<any>(`/api/scoping/items/${itemId}`, {
     method: "PATCH",
-    body: JSON.stringify(hours),
+    body: JSON.stringify(data),
+  });
+
+export const addScopeItem = (scopeId: string, phase: string, deliverable: string, hours?: { optimistic?: number; likely?: number; pessimistic?: number }) =>
+  request<any>(`/api/scoping/items`, {
+    method: "POST",
+    body: JSON.stringify({ scopeId, phase, deliverable, optimisticHours: hours?.optimistic ?? 0, likelyHours: hours?.likely ?? 0, pessimisticHours: hours?.pessimistic ?? 0 }),
+  });
+
+export const deleteScopeItem = (itemId: string) =>
+  request<any>(`/api/scoping/items/${itemId}`, { method: "DELETE" });
+
+export const renamePhase = (scopeId: string, oldName: string, newName: string) =>
+  request<any>(`/api/scoping/${scopeId}/rename-phase`, {
+    method: "PATCH",
+    body: JSON.stringify({ oldName, newName }),
   });
 
 export async function generateProposal(

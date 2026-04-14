@@ -11,6 +11,9 @@ import {
   answerQuestion as apiAnswerQuestion,
   completeScope,
   updateScopeItem,
+  addScopeItem,
+  deleteScopeItem,
+  renamePhase,
   exportMarkdown,
   exportQuestions,
   updateProject,
@@ -119,6 +122,12 @@ export default function ProjectPage() {
   const [editRisk, setEditRisk] = useState({ content: "", severity: "medium", mitigation: "" });
   const [addingRisk, setAddingRisk] = useState(false);
   const [newRisk, setNewRisk] = useState({ content: "", severity: "medium", mitigation: "" });
+  const [editingPhase, setEditingPhase] = useState<string | null>(null);
+  const [editPhaseName, setEditPhaseName] = useState("");
+  const [editingDeliverable, setEditingDeliverable] = useState<string | null>(null);
+  const [editDeliverableName, setEditDeliverableName] = useState("");
+  const [addingItemToPhase, setAddingItemToPhase] = useState<string | null>(null);
+  const [newItem, setNewItem] = useState({ deliverable: "", optimistic: 0, likely: 0, pessimistic: 0 });
   const answerInputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -215,6 +224,37 @@ export default function ProjectPage() {
       )
     );
     setEditingItemId(null);
+  }
+
+  async function handleRenamePhase(oldName: string) {
+    if (!editPhaseName.trim() || editPhaseName === oldName || !scopeId) return;
+    await renamePhase(scopeId, oldName, editPhaseName);
+    setScopeItems((prev) => prev.map((item) => item.phase === oldName ? { ...item, phase: editPhaseName } : item));
+    setEditingPhase(null);
+  }
+
+  async function handleSaveDeliverable(itemId: string) {
+    if (!editDeliverableName.trim()) return;
+    await updateScopeItem(itemId, { deliverable: editDeliverableName });
+    setScopeItems((prev) => prev.map((item) => item.id === itemId ? { ...item, deliverable: editDeliverableName } : item));
+    setEditingDeliverable(null);
+  }
+
+  async function handleAddScopeItem(phaseName: string) {
+    if (!newItem.deliverable.trim() || !scopeId) return;
+    const created = await addScopeItem(scopeId, phaseName, newItem.deliverable, {
+      optimistic: newItem.optimistic,
+      likely: newItem.likely,
+      pessimistic: newItem.pessimistic,
+    });
+    setScopeItems((prev) => [...prev, { id: created.id, phase: phaseName, deliverable: newItem.deliverable, optimisticHours: newItem.optimistic, likelyHours: newItem.likely, pessimisticHours: newItem.pessimistic, confidence: 50 }]);
+    setNewItem({ deliverable: "", optimistic: 0, likely: 0, pessimistic: 0 });
+    setAddingItemToPhase(null);
+  }
+
+  async function handleDeleteScopeItem(itemId: string) {
+    await deleteScopeItem(itemId);
+    setScopeItems((prev) => prev.filter((item) => item.id !== itemId));
   }
 
   async function handleSaveRate() {
@@ -650,13 +690,63 @@ export default function ProjectPage() {
 
               return (
                 <div key={phaseName} className="mb-6">
-                  <h3 className="font-medium text-gray-900 mb-2">{phaseName}</h3>
+                  <div className="flex items-center justify-between mb-2 group">
+                    {editingPhase === phaseName ? (
+                      <div className="flex items-center gap-2 flex-1">
+                        <input
+                          value={editPhaseName}
+                          onChange={(e) => setEditPhaseName(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") handleRenamePhase(phaseName); if (e.key === "Escape") setEditingPhase(null); }}
+                          autoFocus
+                          className="font-medium text-gray-900 px-2 py-0.5 border border-sand rounded bg-white focus:outline-none focus:ring-1 focus:ring-forest flex-1"
+                        />
+                        <button onClick={() => handleRenamePhase(phaseName)} className="text-xs text-forest font-medium">Save</button>
+                        <button onClick={() => setEditingPhase(null)} className="text-xs text-gray-400">Cancel</button>
+                      </div>
+                    ) : (
+                      <>
+                        <h3
+                          className="font-medium text-gray-900 cursor-pointer hover:text-forest transition"
+                          onClick={() => { setEditingPhase(phaseName); setEditPhaseName(phaseName); }}
+                          title="Click to rename phase"
+                        >
+                          {phaseName}
+                        </h3>
+                        <button
+                          onClick={() => setAddingItemToPhase(phaseName)}
+                          className="opacity-0 group-hover:opacity-100 text-xs text-gray-400 hover:text-forest transition-opacity"
+                        >
+                          + Add item
+                        </button>
+                      </>
+                    )}
+                  </div>
                   <div className="space-y-1">
                     {items.map((item) => (
                       <div key={item.id}>
                         <div className="flex items-center justify-between text-sm py-1.5 px-2 rounded hover:bg-cream/50 group">
-                          <span className="text-gray-700">{item.deliverable}</span>
-                          <div className="flex items-center gap-2 text-xs text-gray-500">
+                          {editingDeliverable === item.id ? (
+                            <div className="flex items-center gap-2 flex-1 mr-2">
+                              <input
+                                value={editDeliverableName}
+                                onChange={(e) => setEditDeliverableName(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === "Enter") handleSaveDeliverable(item.id); if (e.key === "Escape") setEditingDeliverable(null); }}
+                                autoFocus
+                                className="text-sm text-gray-700 px-2 py-0.5 border border-sand rounded bg-white focus:outline-none focus:ring-1 focus:ring-forest flex-1"
+                              />
+                              <button onClick={() => handleSaveDeliverable(item.id)} className="text-xs text-forest font-medium">Save</button>
+                              <button onClick={() => setEditingDeliverable(null)} className="text-xs text-gray-400">Cancel</button>
+                            </div>
+                          ) : (
+                            <span
+                              className="text-gray-700 cursor-pointer hover:text-forest transition"
+                              onClick={() => { setEditingDeliverable(item.id); setEditDeliverableName(item.deliverable); }}
+                              title="Click to edit"
+                            >
+                              {item.deliverable}
+                            </span>
+                          )}
+                          <div className="flex items-center gap-2 text-xs text-gray-500 flex-shrink-0">
                             <span>{item.optimisticHours} — {item.likelyHours} — {item.pessimisticHours}h</span>
                             <div className="w-12 h-1.5 bg-gray-200 rounded-full overflow-hidden">
                               <div
@@ -678,6 +768,15 @@ export default function ProjectPage() {
                             >
                               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
                                 <path d="M13.488 2.513a1.75 1.75 0 0 0-2.475 0L3.2 10.326a1 1 0 0 0-.26.46l-.667 2.666a.5.5 0 0 0 .607.607l2.666-.667a1 1 0 0 0 .46-.26l7.813-7.813a1.75 1.75 0 0 0 0-2.475l-.331-.33Z" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => handleDeleteScopeItem(item.id)}
+                              className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-opacity"
+                              title="Delete item"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
+                                <path d="M5.28 4.22a.75.75 0 0 0-1.06 1.06L6.94 8l-2.72 2.72a.75.75 0 1 0 1.06 1.06L8 9.06l2.72 2.72a.75.75 0 1 0 1.06-1.06L9.06 8l2.72-2.72a.75.75 0 0 0-1.06-1.06L8 6.94 5.28 4.22Z" />
                               </svg>
                             </button>
                           </div>
@@ -736,6 +835,38 @@ export default function ProjectPage() {
                         )}
                       </div>
                     ))}
+
+                    {/* Add new item to phase */}
+                    {addingItemToPhase === phaseName && (
+                      <div className="mx-2 p-3 bg-cream/50 rounded-lg border border-sand/50 space-y-2">
+                        <input
+                          value={newItem.deliverable}
+                          onChange={(e) => setNewItem({ ...newItem, deliverable: e.target.value })}
+                          placeholder="Deliverable name..."
+                          autoFocus
+                          onKeyDown={(e) => { if (e.key === "Enter" && newItem.deliverable.trim()) handleAddScopeItem(phaseName); if (e.key === "Escape") setAddingItemToPhase(null); }}
+                          className="w-full px-2 py-1 text-sm border border-sand rounded bg-white focus:outline-none focus:ring-1 focus:ring-forest"
+                        />
+                        <div className="grid grid-cols-3 gap-3">
+                          <div>
+                            <label className="text-xs text-gray-500 block mb-1">Optimistic hrs</label>
+                            <input type="number" min={0} value={newItem.optimistic || ""} onChange={(e) => setNewItem({ ...newItem, optimistic: parseInt(e.target.value) || 0 })} className="w-full px-2 py-1 text-sm border border-sand rounded bg-white focus:outline-none focus:ring-1 focus:ring-forest" />
+                          </div>
+                          <div>
+                            <label className="text-xs text-gray-500 block mb-1">Likely hrs</label>
+                            <input type="number" min={0} value={newItem.likely || ""} onChange={(e) => setNewItem({ ...newItem, likely: parseInt(e.target.value) || 0 })} className="w-full px-2 py-1 text-sm border border-sand rounded bg-white focus:outline-none focus:ring-1 focus:ring-forest" />
+                          </div>
+                          <div>
+                            <label className="text-xs text-gray-500 block mb-1">Pessimistic hrs</label>
+                            <input type="number" min={0} value={newItem.pessimistic || ""} onChange={(e) => setNewItem({ ...newItem, pessimistic: parseInt(e.target.value) || 0 })} className="w-full px-2 py-1 text-sm border border-sand rounded bg-white focus:outline-none focus:ring-1 focus:ring-forest" />
+                          </div>
+                        </div>
+                        <div className="flex justify-end gap-2">
+                          <button onClick={() => { setAddingItemToPhase(null); setNewItem({ deliverable: "", optimistic: 0, likely: 0, pessimistic: 0 }); }} className="text-xs text-gray-400 hover:text-gray-600">Cancel</button>
+                          <button onClick={() => handleAddScopeItem(phaseName)} disabled={!newItem.deliverable.trim()} className="text-xs text-forest font-medium disabled:opacity-50">Add</button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <div className="flex justify-between text-xs text-gray-500 mt-2 px-2 pt-1 border-t border-sand/30">
                     <span className="font-medium">{phaseName} subtotal</span>

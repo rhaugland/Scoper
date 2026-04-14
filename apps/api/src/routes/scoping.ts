@@ -78,13 +78,16 @@ scopingRouter.post("/:scopeId/complete", async (c) => {
   }
 });
 
-// Update a scope item's hours
+// Update a scope item (hours, phase, deliverable, sortOrder)
 scopingRouter.patch("/items/:itemId", async (c) => {
   const itemId = c.req.param("itemId");
   const body = await c.req.json<{
     optimisticHours?: number;
     likelyHours?: number;
     pessimisticHours?: number;
+    phase?: string;
+    deliverable?: string;
+    sortOrder?: number;
   }>();
 
   try {
@@ -96,6 +99,50 @@ scopingRouter.patch("/items/:itemId", async (c) => {
 
     if (!updated) return c.json({ error: "Scope item not found" }, 404);
     return c.json(updated);
+  } catch (e: any) {
+    return c.json({ error: e.message }, 400);
+  }
+});
+
+// Add a scope item
+scopingRouter.post("/items", async (c) => {
+  const { scopeId, phase, deliverable, optimisticHours, likelyHours, pessimisticHours, confidence } = await c.req.json<{
+    scopeId: string;
+    phase: string;
+    deliverable: string;
+    optimisticHours?: number;
+    likelyHours?: number;
+    pessimisticHours?: number;
+    confidence?: number;
+  }>();
+  try {
+    const [created] = await db
+      .insert(scopeItems)
+      .values({ scopeId, phase, deliverable, optimisticHours: optimisticHours ?? 0, likelyHours: likelyHours ?? 0, pessimisticHours: pessimisticHours ?? 0, confidence: confidence ?? 50 })
+      .returning();
+    return c.json(created, 201);
+  } catch (e: any) {
+    return c.json({ error: e.message }, 400);
+  }
+});
+
+// Delete a scope item
+scopingRouter.delete("/items/:itemId", async (c) => {
+  const itemId = c.req.param("itemId");
+  await db.delete(scopeItems).where(eq(scopeItems.id, itemId));
+  return c.json({ ok: true });
+});
+
+// Rename a phase (bulk update all items in that phase)
+scopingRouter.patch("/:scopeId/rename-phase", async (c) => {
+  const scopeId = c.req.param("scopeId");
+  const { oldName, newName } = await c.req.json<{ oldName: string; newName: string }>();
+  try {
+    await db
+      .update(scopeItems)
+      .set({ phase: newName })
+      .where(and(eq(scopeItems.scopeId, scopeId), eq(scopeItems.phase, oldName)));
+    return c.json({ ok: true });
   } catch (e: any) {
     return c.json({ error: e.message }, 400);
   }
