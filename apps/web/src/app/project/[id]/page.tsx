@@ -156,6 +156,9 @@ export default function ProjectPage() {
   const [addingItemToPhase, setAddingItemToPhase] = useState<string | null>(null);
   const [newItem, setNewItem] = useState({ deliverable: "", optimistic: 0, likely: 0, pessimistic: 0 });
   const [leftPanelOpen, setLeftPanelOpen] = useState(true);
+  const [scopeOpen, setScopeOpen] = useState(true);
+  const [assumptionsOpen, setAssumptionsOpen] = useState(true);
+  const [risksOpen, setRisksOpen] = useState(true);
   const [report, setReport] = useState<AccuracyReport | null>(null);
   const [editingActualItemId, setEditingActualItemId] = useState<string | null>(null);
   const [editActualHours, setEditActualHours] = useState(0);
@@ -743,10 +746,26 @@ export default function ProjectPage() {
                   )}
                 </svg>
               </button>
-              <h2 className="font-bold text-forest">Scope</h2>
             </div>
-            <p className="text-xs text-gray-400 mb-4 ml-8">Click phase names, deliverables, or hour estimates to edit</p>
 
+            {/* Scope Section */}
+            <div className="mb-6">
+              <button
+                onClick={() => setScopeOpen(!scopeOpen)}
+                className="flex items-center gap-2 w-full text-left mb-1"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={`w-4 h-4 text-gray-400 transition-transform ${scopeOpen ? "rotate-90" : ""}`}>
+                  <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+                </svg>
+                <h2 className="font-bold text-forest">Scope</h2>
+                <span className="text-xs text-gray-400">({scopeItems.length} items)</span>
+              </button>
+              {scopeOpen && (
+                <p className="text-xs text-gray-400 mb-4 ml-6">Click phase names, deliverables, or hour estimates to edit</p>
+              )}
+            </div>
+
+            {scopeOpen && (<>
             {Array.from(phases).map(([phaseName, items]) => {
               const phaseOptimistic = items.reduce((s, i) => s + i.optimisticHours, 0);
               const phaseLikely = items.reduce((s, i) => s + i.likelyHours, 0);
@@ -1052,10 +1071,21 @@ export default function ProjectPage() {
                 </div>
               </div>
             )}
+            </>)}
 
             <div className="mb-6">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="font-medium text-gray-900">Assumptions</h3>
+              <button
+                onClick={() => setAssumptionsOpen(!assumptionsOpen)}
+                className="flex items-center gap-2 w-full text-left mb-2"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={`w-4 h-4 text-gray-400 transition-transform ${assumptionsOpen ? "rotate-90" : ""}`}>
+                  <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+                </svg>
+                <h2 className="font-bold text-forest">Assumptions</h2>
+                <span className="text-xs text-gray-400">({assumptions.length})</span>
+              </button>
+              {assumptionsOpen && (<>
+              <div className="flex justify-end mb-2">
                 <button
                   onClick={() => setAddingAssumption(true)}
                   className="text-xs text-gray-400 hover:text-forest transition"
@@ -1091,7 +1121,7 @@ export default function ProjectPage() {
                       </div>
                     ) : (
                       <div
-                        className="flex items-center gap-2 text-sm py-1 group cursor-pointer hover:bg-cream/30 rounded px-1"
+                        className="flex items-center gap-2 text-sm py-1.5 px-2 group cursor-pointer hover:bg-cream/50 rounded"
                         onClick={() => {
                           setEditingAssumptionId(a.id);
                           setEditAssumption({ content: a.content, status: a.status });
@@ -1128,11 +1158,22 @@ export default function ProjectPage() {
                   <div className="text-sm text-gray-400 italic">No assumptions yet</div>
                 )}
               </div>
+              </>)}
             </div>
 
             <div className="mb-6">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="font-medium text-gray-900">Risks</h3>
+              <button
+                onClick={() => setRisksOpen(!risksOpen)}
+                className="flex items-center gap-2 w-full text-left mb-2"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={`w-4 h-4 text-gray-400 transition-transform ${risksOpen ? "rotate-90" : ""}`}>
+                  <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+                </svg>
+                <h2 className="font-bold text-forest">Risks</h2>
+                <span className="text-xs text-gray-400">({risks.length})</span>
+              </button>
+              {risksOpen && (<>
+              <div className="flex justify-end mb-2">
                 <button
                   onClick={() => setAddingRisk(true)}
                   className="text-xs text-gray-400 hover:text-forest transition"
@@ -1177,7 +1218,7 @@ export default function ProjectPage() {
                       </div>
                     ) : (
                       <div
-                        className="text-sm py-1 group cursor-pointer hover:bg-cream/30 rounded px-1 flex items-center"
+                        className="text-sm py-1.5 px-2 group cursor-pointer hover:bg-cream/50 rounded flex items-center"
                         onClick={() => {
                           setEditingRiskId(r.id);
                           setEditRisk({ content: r.content, severity: r.severity, mitigation: r.mitigation ?? "" });
@@ -1232,6 +1273,7 @@ export default function ProjectPage() {
                   <div className="text-sm text-gray-400 italic">No risks flagged yet</div>
                 )}
               </div>
+              </>)}
             </div>
 
             {/* Generate Proposal */}
