@@ -16,6 +16,7 @@ export const projectStatusEnum = pgEnum("project_status", [
   "scoping",
   "complete",
   "proposal_sent",
+  "delivered",
 ]);
 
 export const inputSourceEnum = pgEnum("input_source", [
@@ -142,4 +143,13 @@ export const proposals = pgTable("proposals", {
   pricingMode: pricingModeEnum("pricing_mode").default("per_phase").notNull(),
   retainerMonths: integer("retainer_months"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const actuals = pgTable("actuals", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  scopeItemId: uuid("scope_item_id").references(() => scopeItems.id).notNull().unique(),
+  actualHours: integer("actual_hours").notNull(),
+  notes: text("notes"),
+  loggedAt: timestamp("logged_at").defaultNow().notNull(),
+  loggedBy: uuid("logged_by").references(() => users.id).notNull(),
 });
