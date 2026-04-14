@@ -1,7 +1,5 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
-
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, {
+  const res = await fetch(path, {
     credentials: "include",
     headers: { "Content-Type": "application/json", ...options?.headers },
     ...options,
@@ -43,6 +41,18 @@ export const createProject = (name: string, clientName?: string) =>
 export const getProject = (id: string) =>
   request<any>(`/api/projects/${id}`);
 
+export const updateProject = (id: string, data: {
+  name?: string;
+  clientName?: string;
+  blendedRate?: number;
+  marginPercent?: number;
+  weeklyCapacity?: number;
+}) =>
+  request<any>(`/api/projects/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+
 // Inputs
 export const addInput = (projectId: string, content: string, source?: string) =>
   request<any>(`/api/projects/${projectId}/inputs`, {
@@ -65,6 +75,36 @@ export const answerQuestion = (questionId: string, answer?: string, skipped?: bo
     method: "POST",
     body: JSON.stringify({ answer, skipped }),
   });
+
+export const completeScope = (scopeId: string, answers: { questionId: string; answer: string }[]) =>
+  request<{ ok: boolean }>(`/api/scoping/${scopeId}/complete`, {
+    method: "POST",
+    body: JSON.stringify({ answers }),
+  });
+
+export const updateScopeItem = (itemId: string, hours: { optimisticHours?: number; likelyHours?: number; pessimisticHours?: number }) =>
+  request<any>(`/api/scoping/items/${itemId}`, {
+    method: "PATCH",
+    body: JSON.stringify(hours),
+  });
+
+export async function generateProposal(
+  projectId: string,
+  pricingMode: "per_phase" | "retainer" = "per_phase",
+  retainerMonths?: number
+): Promise<Blob> {
+  const res = await fetch(`/api/proposals/${projectId}/generate`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ pricingMode, retainerMonths }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(body.error ?? `Request failed: ${res.status}`);
+  }
+  return res.blob();
+}
 
 // Export
 export const exportMarkdown = (projectId: string) =>

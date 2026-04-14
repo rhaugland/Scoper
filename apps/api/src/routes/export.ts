@@ -29,7 +29,7 @@ exportRouter.get("/:projectId/markdown", async (c) => {
   const state = await getCurrentScopeState(scope.id);
   const markdown = scopeToMarkdown(state as any, project.name, project.clientName);
 
-  return c.text(markdown, 200, { "Content-Type": "text/markdown" });
+  return c.text(markdown, 200, { "Content-Type": "text/plain; charset=utf-8" });
 });
 
 exportRouter.get("/:projectId/questions", async (c) => {

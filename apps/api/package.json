@@ -9,11 +9,13 @@
     "test": "vitest"
   },
   "dependencies": {
-    "@scoper/db": "*",
     "@anthropic-ai/sdk": "^0.39.0",
     "@hono/node-server": "^1.14.0",
+    "@scoper/db": "*",
     "dotenv": "^17.4.1",
     "hono": "^4.7.0",
+    "marked": "^18.0.0",
+    "puppeteer": "^24.40.0",
     "resend": "^4.1.0"
   },
   "devDependencies": {

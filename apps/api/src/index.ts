@@ -6,11 +6,12 @@ import projectsRouter from "./routes/projects";
 import inputsRouter from "./routes/inputs";
 import scopingRouter from "./routes/scoping";
 import exportRouter from "./routes/export";
+import proposalsRouter from "./routes/proposals";
 
 const app = new Hono();
 
 app.use("*", cors({
-  origin: process.env.APP_URL ?? "http://localhost:3002",
+  origin: (origin) => origin ?? process.env.APP_URL ?? "http://localhost:3004",
   credentials: true,
 }));
 
@@ -20,6 +21,7 @@ app.route("/api/projects", projectsRouter);
 app.route("/api/projects", inputsRouter);
 app.route("/api/scoping", scopingRouter);
 app.route("/api/export", exportRouter);
+app.route("/api/proposals", proposalsRouter);
 
 if (process.env.NODE_ENV !== "test") {
   const port = parseInt(process.env.PORT ?? "3003");

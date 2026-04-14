@@ -36,6 +36,12 @@ export async function startScopingSession(projectId: string): Promise<{
       .values({ projectId, version: 1, summary: extraction.draft.summary })
       .returning();
   } else {
+    // Clear existing scope data before re-inserting
+    await db.delete(scopeItems).where(eq(scopeItems.scopeId, scope.id));
+    await db.delete(assumptions).where(eq(assumptions.scopeId, scope.id));
+    await db.delete(risks).where(eq(risks.scopeId, scope.id));
+    await db.delete(questions).where(eq(questions.scopeId, scope.id));
+
     await db
       .update(scopes)
       .set({ summary: extraction.draft.summary, updatedAt: new Date() })
@@ -260,6 +266,7 @@ export async function getCurrentScopeState(scopeId: string) {
     scope,
     draft,
     scopeItems: items.map((i) => ({
+      id: i.id,
       phase: i.phase,
       deliverable: i.deliverable,
       optimisticHours: i.optimisticHours ?? 0,

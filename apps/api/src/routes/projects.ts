@@ -51,10 +51,13 @@ projectsRouter.get("/:id", async (c) => {
 // Update a project
 projectsRouter.patch("/:id", async (c) => {
   const userId = c.get("userId" as never) as string;
-  const { name, clientName, status } = await c.req.json<{
+  const { name, clientName, status, blendedRate, marginPercent, weeklyCapacity } = await c.req.json<{
     name?: string;
     clientName?: string;
     status?: string;
+    blendedRate?: number;
+    marginPercent?: number;
+    weeklyCapacity?: number;
   }>();
 
   const [existing] = await db
@@ -72,6 +75,9 @@ projectsRouter.patch("/:id", async (c) => {
       ...(name && { name }),
       ...(clientName !== undefined && { clientName }),
       ...(status && { status: status as any }),
+      ...(blendedRate !== undefined && { blendedRate }),
+      ...(marginPercent !== undefined && { marginPercent }),
+      ...(weeklyCapacity !== undefined && { weeklyCapacity }),
       updatedAt: new Date(),
     })
     .where(eq(projects.id, c.req.param("id")))

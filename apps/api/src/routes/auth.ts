@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { createMagicLink, verifyMagicLink } from "../services/magic-link";
-import { setCookie } from "hono/cookie";
+import { setCookie, getCookie } from "hono/cookie";
 
 const auth = new Hono();
 
@@ -32,7 +32,7 @@ auth.get("/verify", async (c) => {
 });
 
 auth.get("/me", async (c) => {
-  const userId = c.get("userId" as never);
+  const userId = getCookie(c, "session");
   if (!userId) return c.json({ error: "Not authenticated" }, 401);
   return c.json({ userId });
 });

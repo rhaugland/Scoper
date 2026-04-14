@@ -47,3 +47,18 @@ export interface InterrogationResult {
   newAssumptions: GeneratedAssumption[];
   newRisks: GeneratedRisk[];
 }
+
+export interface ProposalContext {
+  projectName: string;
+  clientName: string | null;
+  summary: string;
+  scopeItems: GeneratedScopeItem[];
+  assumptions: GeneratedAssumption[];
+  risks: GeneratedRisk[];
+  questionsAndAnswers: { question: string; answer: string }[];
+  phasePricing: { phase: string; optimistic: string; realistic: string; pessimistic: string }[];
+  totalPricing: { optimistic: string; realistic: string; pessimistic: string };
+  timeline: { phase: string; weeks: number }[];
+  pricingMode: "per_phase" | "retainer";
+  retainerMonths?: number;
+}

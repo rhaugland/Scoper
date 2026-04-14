@@ -74,6 +74,27 @@ export function scopeToMarkdown(
   }
   lines.push("");
 
+  const answeredQuestions = state.questions.filter((q) => q.answer);
+  if (answeredQuestions.length > 0) {
+    lines.push("## Scope Decisions (Q&A)");
+    lines.push("");
+    for (const q of answeredQuestions) {
+      lines.push(`**Q:** ${q.content}`);
+      lines.push(`**A:** ${q.answer}`);
+      lines.push("");
+    }
+  }
+
+  const skippedQuestions = state.questions.filter((q) => q.skipped && !q.answer);
+  if (skippedQuestions.length > 0) {
+    lines.push("## Questions for Client");
+    lines.push("");
+    for (const q of skippedQuestions) {
+      lines.push(`- ${q.content}`);
+    }
+    lines.push("");
+  }
+
   const openQuestions = state.questions.filter((q) => !q.answer && !q.skipped);
   if (openQuestions.length > 0) {
     lines.push("## Open Questions");

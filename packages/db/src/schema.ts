@@ -60,6 +60,9 @@ export const projects = pgTable("projects", {
   clientName: varchar("client_name", { length: 255 }),
   status: projectStatusEnum("status").default("draft").notNull(),
   createdBy: uuid("created_by").references(() => users.id).notNull(),
+  blendedRate: integer("blended_rate"),
+  marginPercent: integer("margin_percent"),
+  weeklyCapacity: integer("weekly_capacity").default(30),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -124,5 +127,19 @@ export const risks = pgTable("risks", {
   content: text("content").notNull(),
   severity: riskSeverityEnum("severity").default("medium").notNull(),
   mitigation: text("mitigation"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const pricingModeEnum = pgEnum("pricing_mode", [
+  "per_phase",
+  "retainer",
+]);
+
+export const proposals = pgTable("proposals", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  projectId: uuid("project_id").references(() => projects.id).notNull(),
+  content: text("content").notNull(),
+  pricingMode: pricingModeEnum("pricing_mode").default("per_phase").notNull(),
+  retainerMonths: integer("retainer_months"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
