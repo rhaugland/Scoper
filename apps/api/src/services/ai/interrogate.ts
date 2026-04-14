@@ -8,7 +8,11 @@ import type {
   InterrogationResult,
 } from "./types";
 
-const anthropic = new Anthropic();
+let _anthropic: Anthropic;
+function getClient() {
+  if (!_anthropic) _anthropic = new Anthropic();
+  return _anthropic;
+}
 
 export async function interrogateScope(
   draft: ExtractedDraft,
@@ -19,7 +23,7 @@ export async function interrogateScope(
 ): Promise<InterrogationResult> {
   const prompt = buildInterrogationPrompt(draft, scopeItems, assumptions, risks, previousQA);
 
-  const response = await anthropic.messages.create({
+  const response = await getClient().messages.create({
     model: "claude-sonnet-4-20250514",
     max_tokens: 4096,
     messages: [{ role: "user", content: prompt }],

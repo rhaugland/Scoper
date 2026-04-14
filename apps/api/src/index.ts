@@ -22,7 +22,7 @@ app.route("/api/scoping", scopingRouter);
 app.route("/api/export", exportRouter);
 
 if (process.env.NODE_ENV !== "test") {
-  const port = parseInt(process.env.PORT ?? "3001");
+  const port = parseInt(process.env.PORT ?? "3003");
   console.log(`Scoper API running on port ${port}`);
   serve({ fetch: app.fetch, port });
 }

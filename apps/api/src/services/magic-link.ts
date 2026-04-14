@@ -3,7 +3,11 @@ import { db, magicLinks, users } from "@scoper/db";
 import { eq, and } from "drizzle-orm";
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+let _resend: Resend;
+function getResend() {
+  if (!_resend) _resend = new Resend(process.env.RESEND_API_KEY);
+  return _resend;
+}
 
 export function generateToken(): string {
   return randomBytes(32).toString("hex");
@@ -21,7 +25,7 @@ export async function createMagicLink(email: string): Promise<string> {
 
   const link = `${process.env.APP_URL}/login?token=${token}`;
 
-  await resend.emails.send({
+  await getResend().emails.send({
     from: process.env.MAGIC_LINK_FROM_EMAIL!,
     to: email,
     subject: "Sign in to Scoper",

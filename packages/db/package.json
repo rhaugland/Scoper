@@ -4,14 +4,15 @@
   "type": "module",
   "main": "./src/index.ts",
   "scripts": {
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:generate": "dotenv -e ../../.env -- drizzle-kit generate",
+    "db:migrate": "dotenv -e ../../.env -- drizzle-kit migrate"
   },
   "dependencies": {
     "drizzle-orm": "^0.39.0",
     "postgres": "^3.4.0"
   },
   "devDependencies": {
+    "dotenv-cli": "^11.0.0",
     "drizzle-kit": "^0.30.0",
     "typescript": "^5.7.0"
   }

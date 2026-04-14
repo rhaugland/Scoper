@@ -2,12 +2,16 @@ import Anthropic from "@anthropic-ai/sdk";
 import { buildExtractionPrompt } from "./prompts";
 import type { ExtractionResult } from "./types";
 
-const anthropic = new Anthropic();
+let _anthropic: Anthropic;
+function getClient() {
+  if (!_anthropic) _anthropic = new Anthropic();
+  return _anthropic;
+}
 
 export async function extractFromInputs(rawInputs: string[]): Promise<ExtractionResult> {
   const prompt = buildExtractionPrompt(rawInputs);
 
-  const response = await anthropic.messages.create({
+  const response = await getClient().messages.create({
     model: "claude-sonnet-4-20250514",
     max_tokens: 4096,
     messages: [{ role: "user", content: prompt }],
