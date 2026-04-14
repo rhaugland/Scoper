@@ -1085,7 +1085,8 @@ export default function ProjectPage() {
                 <span className="text-xs text-gray-400">({assumptions.length})</span>
               </button>
               {assumptionsOpen && (<>
-              <div className="flex justify-end mb-2">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-gray-400 ml-6">Click to edit</p>
                 <button
                   onClick={() => setAddingAssumption(true)}
                   className="text-xs text-gray-400 hover:text-forest transition"
@@ -1173,7 +1174,8 @@ export default function ProjectPage() {
                 <span className="text-xs text-gray-400">({risks.length})</span>
               </button>
               {risksOpen && (<>
-              <div className="flex justify-end mb-2">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-gray-400 ml-6">Click to edit</p>
                 <button
                   onClick={() => setAddingRisk(true)}
                   className="text-xs text-gray-400 hover:text-forest transition"
@@ -1218,21 +1220,28 @@ export default function ProjectPage() {
                       </div>
                     ) : (
                       <div
-                        className="text-sm py-1.5 px-2 group cursor-pointer hover:bg-cream/50 rounded flex items-center"
+                        className="py-1.5 px-2 group cursor-pointer hover:bg-cream/50 rounded"
                         onClick={() => {
                           setEditingRiskId(r.id);
                           setEditRisk({ content: r.content, severity: r.severity, mitigation: r.mitigation ?? "" });
                         }}
                       >
-                        <span className={`text-xs font-medium mr-2 flex-shrink-0 ${
-                          r.severity === "high" ? "text-red-600" :
-                          r.severity === "medium" ? "text-yellow-600" :
-                          "text-gray-500"
-                        }`}>
-                          {r.severity.toUpperCase()}
-                        </span>
-                        <span className="text-gray-700 flex-1">{r.content}</span>
-                        <span className="opacity-0 group-hover:opacity-100 text-xs text-gray-400 transition-opacity ml-2">edit</span>
+                        <div className="flex items-center text-sm">
+                          <span className={`text-xs font-medium mr-2 flex-shrink-0 ${
+                            r.severity === "high" ? "text-red-600" :
+                            r.severity === "medium" ? "text-yellow-600" :
+                            "text-gray-500"
+                          }`}>
+                            {r.severity.toUpperCase()}
+                          </span>
+                          <span className="text-gray-700 flex-1">{r.content}</span>
+                          <span className="opacity-0 group-hover:opacity-100 text-xs text-gray-400 transition-opacity ml-2">edit</span>
+                        </div>
+                        {r.mitigation && (
+                          <div className="ml-12 mt-1 text-xs text-gray-500 italic">
+                            Mitigation: {r.mitigation}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
