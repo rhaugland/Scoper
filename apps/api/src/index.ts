@@ -2,6 +2,7 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import auth from "./routes/auth";
+import projectsRouter from "./routes/projects";
 
 const app = new Hono();
 
@@ -12,9 +13,12 @@ app.use("*", cors({
 
 app.get("/health", (c) => c.json({ status: "ok" }));
 app.route("/api/auth", auth);
+app.route("/api/projects", projectsRouter);
 
-const port = parseInt(process.env.PORT ?? "3001");
-console.log(`Scoper API running on port ${port}`);
-serve({ fetch: app.fetch, port });
+if (process.env.NODE_ENV !== "test") {
+  const port = parseInt(process.env.PORT ?? "3001");
+  console.log(`Scoper API running on port ${port}`);
+  serve({ fetch: app.fetch, port });
+}
 
 export default app;
