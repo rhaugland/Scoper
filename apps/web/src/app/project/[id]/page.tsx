@@ -8,6 +8,7 @@ import {
   addInput,
   startScoping,
   getScopeState,
+  listScopes,
   answerQuestion as apiAnswerQuestion,
   completeScope,
   updateScopeItem,
@@ -104,7 +105,7 @@ export default function ProjectPage() {
   const [currentAnswer, setCurrentAnswer] = useState("");
   const [activeQuestionId, setActiveQuestionId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [phase, setPhase] = useState<"input" | "scoping" | "complete">("input");
+  const [phase, setPhase] = useState<"input" | "scoping" | "complete" | "delivered">("input");
   const [summary, setSummary] = useState("");
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editHours, setEditHours] = useState({ optimistic: 0, likely: 0, pessimistic: 0 });
@@ -131,13 +132,34 @@ export default function ProjectPage() {
   const answerInputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    getProject(projectId).then((p) => {
+    getProject(projectId).then(async (p) => {
       setProject(p);
       setRateConfig({
         blendedRate: p.blendedRate ?? 0,
         marginPercent: p.marginPercent ?? 0,
         weeklyCapacity: p.weeklyCapacity ?? 30,
       });
+      // Restore phase from server status
+      if (p.status === "delivered" || p.status === "complete" || p.status === "scoping") {
+        const scopeList = await listScopes(projectId);
+        if (scopeList.length > 0) {
+          const activeScope = scopeList[0];
+          setScopeId(activeScope.id);
+          const state = await getScopeState(activeScope.id);
+          setScopeItems(state.scopeItems);
+          setAssumptions(state.assumptions);
+          setRisks(state.risks);
+          setQuestions(state.questions);
+          setSummary(state.draft?.summary ?? "");
+          if (p.status === "delivered") {
+            setPhase("delivered");
+          } else if (p.status === "complete") {
+            setPhase("complete");
+          } else {
+            setPhase("scoping");
+          }
+        }
+      }
     }).catch(() => router.push("/dashboard"));
     listInputs(projectId).then(setInputs);
   }, [projectId, router]);

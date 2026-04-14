@@ -71,6 +71,9 @@ export const startScoping = (projectId: string) =>
 export const getScopeState = (scopeId: string) =>
   request<any>(`/api/scoping/${scopeId}/state`);
 
+export const listScopes = (projectId: string) =>
+  request<any[]>(`/api/scoping/${projectId}/scopes`);
+
 export const answerQuestion = (questionId: string, answer?: string, skipped?: boolean) =>
   request<any>(`/api/scoping/questions/${questionId}/answer`, {
     method: "POST",

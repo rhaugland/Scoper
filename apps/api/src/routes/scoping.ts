@@ -18,6 +18,16 @@ scopingRouter.post("/:projectId/start", async (c) => {
   }
 });
 
+// List scopes for a project
+scopingRouter.get("/:projectId/scopes", async (c) => {
+  const projectId = c.req.param("projectId");
+  const rows = await db
+    .select()
+    .from(scopes)
+    .where(and(eq(scopes.projectId, projectId), eq(scopes.isActive, true)));
+  return c.json(rows);
+});
+
 // Get current scope state
 scopingRouter.get("/:scopeId/state", async (c) => {
   const scopeId = c.req.param("scopeId");
