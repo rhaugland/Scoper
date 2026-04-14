@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import auth from "./routes/auth";
 import projectsRouter from "./routes/projects";
+import inputsRouter from "./routes/inputs";
 
 const app = new Hono();
 
@@ -14,6 +15,7 @@ app.use("*", cors({
 app.get("/health", (c) => c.json({ status: "ok" }));
 app.route("/api/auth", auth);
 app.route("/api/projects", projectsRouter);
+app.route("/api/projects", inputsRouter);
 
 if (process.env.NODE_ENV !== "test") {
   const port = parseInt(process.env.PORT ?? "3001");
