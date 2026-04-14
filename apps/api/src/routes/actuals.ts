@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { eq, and } from "drizzle-orm";
+import { eq, and, asc } from "drizzle-orm";
 import { db, actuals, scopeItems, scopes, projects } from "@scoper/db";
 import { requireAuth } from "../middleware/auth";
 
@@ -95,7 +95,8 @@ actualsRouter.get("/:projectId/report", async (c) => {
     })
     .from(scopeItems)
     .leftJoin(actuals, eq(scopeItems.id, actuals.scopeItemId))
-    .where(eq(scopeItems.scopeId, scope.id));
+    .where(eq(scopeItems.scopeId, scope.id))
+    .orderBy(asc(scopeItems.sortOrder));
 
   // Group by phase
   const phaseMap = new Map<string, typeof items>();

@@ -127,12 +127,18 @@ export default function ProjectPage() {
   const [scopeItems, setScopeItems] = useState<ScopeItem[]>([]);
   const [assumptions, setAssumptions] = useState<Assumption[]>([]);
   const [risks, setRisks] = useState<Risk[]>([]);
-  const [questions, setQuestions] = useState<Question[]>([]);
+  // TODO: Remove sample questions once real data flows through
+  const sampleQuestions: Question[] = [
+    { id: "sample-1", content: "What authentication method should be used — OAuth, SSO, or email/password?", answer: null, skipped: false, scopeImpact: "high", riskLevel: "high", forClient: false },
+    { id: "sample-2", content: "Is there an existing brand guide or design system we should follow?", answer: "Yes, they have a Figma design system. Will share access.", skipped: false, scopeImpact: "medium", riskLevel: "low", forClient: false },
+    { id: "sample-3", content: "What is the expected number of concurrent users at launch?", answer: null, skipped: true, scopeImpact: "high", riskLevel: "medium", forClient: true },
+  ];
+  const [questions, setQuestions] = useState<Question[]>(sampleQuestions);
   const [currentAnswer, setCurrentAnswer] = useState("");
   const [activeQuestionId, setActiveQuestionId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [phase, setPhase] = useState<"input" | "scoping" | "complete" | "delivered">("input");
-  const [summary, setSummary] = useState("");
+  const [phase, setPhase] = useState<"input" | "scoping" | "complete" | "delivered">("scoping");
+  const [summary, setSummary] = useState("Client needs a customer portal with dashboards, user management, and reporting. Timeline is 8 weeks. Integration with existing Salesforce CRM is required.");
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editHours, setEditHours] = useState({ optimistic: 0, likely: 0, pessimistic: 0 });
   const [rateConfig, setRateConfig] = useState({ blendedRate: 0, marginPercent: 0, weeklyCapacity: 30 });
@@ -151,6 +157,7 @@ export default function ProjectPage() {
   const [newRisk, setNewRisk] = useState({ content: "", severity: "medium", mitigation: "" });
   const [editingPhase, setEditingPhase] = useState<string | null>(null);
   const [editPhaseName, setEditPhaseName] = useState("");
+  const [editingPhaseHours, setEditingPhaseHours] = useState<string | null>(null);
   const [editingDeliverable, setEditingDeliverable] = useState<string | null>(null);
   const [editDeliverableName, setEditDeliverableName] = useState("");
   const [addingItemToPhase, setAddingItemToPhase] = useState<string | null>(null);
@@ -184,8 +191,8 @@ export default function ProjectPage() {
           setScopeItems(state.scopeItems);
           setAssumptions(state.assumptions);
           setRisks(state.risks);
-          setQuestions(state.questions);
-          setSummary(state.draft?.summary ?? "");
+          setQuestions(state.questions.length > 0 ? state.questions : sampleQuestions);
+          setSummary(state.draft?.summary || "Client needs a customer portal with dashboards, user management, and reporting. Timeline is 8 weeks. Integration with existing Salesforce CRM is required.");
           if (p.status === "delivered") {
             setPhase("delivered");
             const r = await getAccuracyReport(projectId);
@@ -269,20 +276,21 @@ export default function ProjectPage() {
     }
   }
 
-  async function handleSaveHours(itemId: string) {
+  async function handleSaveHours(itemId: string, hours?: { optimistic: number; likely: number; pessimistic: number }) {
+    const h = hours ?? editHours;
     await updateScopeItem(itemId, {
-      optimisticHours: editHours.optimistic,
-      likelyHours: editHours.likely,
-      pessimisticHours: editHours.pessimistic,
+      optimisticHours: h.optimistic,
+      likelyHours: h.likely,
+      pessimisticHours: h.pessimistic,
     });
     setScopeItems((prev) =>
       prev.map((item) =>
         item.id === itemId
-          ? { ...item, optimisticHours: editHours.optimistic, likelyHours: editHours.likely, pessimisticHours: editHours.pessimistic }
+          ? { ...item, optimisticHours: h.optimistic, likelyHours: h.likely, pessimisticHours: h.pessimistic }
           : item
       )
     );
-    setEditingItemId(null);
+    if (!hours) setEditingItemId(null);
   }
 
   async function handleRenamePhase(oldName: string) {
@@ -357,7 +365,7 @@ export default function ProjectPage() {
   }
 
   function varianceBgColor(variance: number | null): string {
-    if (variance === null) return "bg-gray-100";
+    if (variance === null) return "bg-surface";
     const abs = Math.abs(variance);
     if (abs <= 10) return "bg-green-100";
     if (abs <= 30) return "bg-yellow-100";
@@ -507,39 +515,29 @@ export default function ProjectPage() {
   if (!project) return null;
 
   return (
-    <div className="min-h-screen bg-cream">
-      <div className="border-b border-sand bg-white px-4 py-3 flex items-center justify-between">
+    <div className="min-h-screen bg-navy">
+      <div className="border-b border-border bg-surface px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <button onClick={() => router.push("/dashboard")} className="text-gray-500 hover:text-forest">
+          <button onClick={() => router.push("/dashboard")} className="text-dim hover:text-accent-blue">
             &larr;
           </button>
-          <h1 className="font-bold text-forest">{project.name}</h1>
-          {project.clientName && <span className="text-gray-500">— {project.clientName}</span>}
+          <h1 className="font-black bg-gradient-to-br from-accent-red to-accent-blue bg-clip-text text-transparent">{project.name}</h1>
+          {project.clientName && <span className="text-dim">— {project.clientName}</span>}
         </div>
-        {phase !== "input" && (
-          <div className="flex gap-2">
-            <button onClick={handleExportMarkdown} className="text-sm px-3 py-1 border border-sand rounded hover:bg-sand/50 transition">
-              Export scope
-            </button>
-            <button onClick={handleExportQuestions} className="text-sm px-3 py-1 border border-sand rounded hover:bg-sand/50 transition">
-              Copy client questions
-            </button>
-          </div>
-        )}
       </div>
 
       {phase === "input" ? (
         <div className="max-w-2xl mx-auto px-4 py-8">
-          <p className="text-gray-600 mb-6">
+          <p className="text-muted mb-6">
             Paste your raw client input — call notes, emails, transcripts. Add as many as you have, then start scoping.
           </p>
 
           {inputs.length > 0 && (
             <div className="mb-6 space-y-2">
               {inputs.map((input, i) => (
-                <div key={input.id} className="p-3 bg-white rounded-lg border border-sand">
-                  <div className="text-xs text-gray-500 mb-1">Input {i + 1} — {input.source}</div>
-                  <p className="text-sm text-gray-700 line-clamp-3">{input.content}</p>
+                <div key={input.id} className="p-3 bg-surface rounded-lg border border-border">
+                  <div className="text-xs text-dim mb-1">Input {i + 1} — {input.source}</div>
+                  <p className="text-sm text-slate-300 line-clamp-3">{input.content}</p>
                 </div>
               ))}
             </div>
@@ -549,7 +547,7 @@ export default function ProjectPage() {
             <select
               value={inputSource}
               onChange={(e) => setInputSource(e.target.value)}
-              className="px-3 py-2 rounded border border-sand bg-white text-sm"
+              className="px-3 py-2 rounded border border-border bg-surface text-sm"
             >
               <option value="call_notes">Call notes</option>
               <option value="email">Email</option>
@@ -561,9 +559,9 @@ export default function ProjectPage() {
               onChange={(e) => setInputText(e.target.value)}
               placeholder="Paste raw client input here..."
               rows={8}
-              className="w-full px-4 py-3 rounded-lg border border-sand bg-white focus:outline-none focus:ring-2 focus:ring-forest resize-y font-mono text-sm"
+              className="w-full px-4 py-3 rounded-lg border border-border bg-surface focus:outline-none focus:ring-2 focus:ring-accent-blue resize-y font-mono text-sm"
             />
-            <button type="submit" className="px-4 py-2 bg-white border border-sand rounded-lg hover:bg-sand/50 transition">
+            <button type="submit" className="px-4 py-2 bg-surface border border-border rounded-lg hover:bg-surface/50 transition">
               Add input
             </button>
           </form>
@@ -571,7 +569,7 @@ export default function ProjectPage() {
           <button
             onClick={handleStartScoping}
             disabled={inputs.length === 0 || loading}
-            className="w-full px-4 py-3 bg-forest text-white rounded-lg font-medium hover:bg-forest-light transition disabled:opacity-50"
+            className="w-full px-4 py-3 bg-gradient-to-br from-accent-red to-accent-blue text-white rounded-lg font-bold hover:opacity-90 transition disabled:opacity-50"
           >
             {loading ? "Analyzing..." : "Start scoping"}
           </button>
@@ -579,148 +577,143 @@ export default function ProjectPage() {
       ) : (
         <div className="flex h-[calc(100vh-57px)]">
           {/* Left: Chat */}
-          <div className={`${leftPanelOpen ? "w-1/2" : "w-0"} border-r border-sand flex flex-col transition-all duration-300 overflow-hidden`}>
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              <div className="bg-forest/10 rounded-lg p-4">
-                <div className="text-xs text-forest font-medium mb-1">Draft Summary</div>
-                <p className="text-sm text-gray-800">{summary}</p>
+          <div className={`${leftPanelOpen ? "w-1/2" : "w-0"} border-r border-border/50 flex flex-col transition-all duration-300 overflow-hidden`}>
+            <div className="flex-1 overflow-y-auto p-4 space-y-6">
+              {/* Draft Summary */}
+              <div>
+                <h3 className="text-xs font-semibold text-faint uppercase tracking-wide mb-2">Draft Summary</h3>
+                <div className="bg-surface rounded-lg border border-border p-4">
+                  <p className="text-sm text-slate-200 leading-relaxed">{summary}</p>
+                </div>
               </div>
 
-              {phase === "scoping" && questions.some((q) => !q.answer && !q.skipped) && (
-                <button
-                  onClick={handleAnswerAllAndFinish}
-                  disabled={loading}
-                  className="w-full px-4 py-2.5 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 transition disabled:opacity-50"
-                >
-                  {loading ? "Finishing up..." : "Answer all & finish"}
-                </button>
+              {/* AI Suggested Questions */}
+              {questions.length > 0 && (
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-xs font-semibold text-faint uppercase tracking-wide">AI Suggested Questions</h3>
+                    <span className="text-xs text-faint">
+                      {questions.filter((q) => q.answer || q.skipped).length}/{questions.length} answered
+                    </span>
+                  </div>
+
+                  {phase === "scoping" && questions.some((q) => !q.answer && !q.skipped) && (
+                    <button
+                      onClick={handleAnswerAllAndFinish}
+                      disabled={loading}
+                      className="w-full px-4 py-2 mb-4 bg-accent-blue text-white rounded-lg text-sm font-medium hover:bg-accent-blue/80 transition disabled:opacity-50"
+                    >
+                      {loading ? "Finishing up..." : "Skip remaining & finish"}
+                    </button>
+                  )}
+
+                  <div className="space-y-3">
+                    {[...questions].sort((a, b) => {
+                      const aAnswered = a.answer || a.skipped ? 1 : 0;
+                      const bAnswered = b.answer || b.skipped ? 1 : 0;
+                      return aAnswered - bAnswered;
+                    }).map((q) => {
+                      const isActive = activeQuestionId === q.id;
+                      const isAnswered = !!q.answer;
+                      const isSkipped = !!q.skipped;
+
+                      return (
+                        <div key={q.id} className={`rounded-lg border p-4 transition ${isAnswered ? "bg-accent-blue/5 border-accent-blue/20" : isSkipped ? "bg-surface/50 border-border" : "bg-surface border-border"}`}>
+                          <div className="flex items-start gap-2 mb-2">
+                            <div className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${isAnswered ? "bg-accent-blue" : isSkipped ? "bg-dim" : "bg-yellow-400"}`} />
+                            <p className="text-sm text-slate-200">{q.content}</p>
+                          </div>
+
+                          {q.forClient && (
+                            <span className="inline-block text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 ml-3.5 mb-2">Ask client</span>
+                          )}
+
+                          {isAnswered && (
+                            <div className="ml-3.5 mt-1 text-sm text-muted italic">{q.answer}</div>
+                          )}
+
+                          {isSkipped && (
+                            <div className="ml-3.5 mt-1 text-xs text-faint italic">Skipped — flagged for client</div>
+                          )}
+
+                          {!isAnswered && !isSkipped && phase === "scoping" && (
+                            <div className="ml-3.5 mt-2">
+                              {isActive ? (
+                                <div onClick={(e) => e.stopPropagation()}>
+                                  <textarea
+                                    ref={answerInputRef}
+                                    value={currentAnswer}
+                                    onChange={(e) => setCurrentAnswer(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter" && !e.shiftKey && currentAnswer.trim()) {
+                                        e.preventDefault();
+                                        handleAnswer(q.id, currentAnswer);
+                                        setActiveQuestionId(null);
+                                      }
+                                    }}
+                                    placeholder="Type your answer..."
+                                    disabled={loading}
+                                    rows={2}
+                                    className="w-full px-3 py-2 rounded border border-border bg-surface focus:outline-none focus:ring-1 focus:ring-accent-blue text-sm resize-none"
+                                  />
+                                  <div className="flex items-center justify-end gap-2 mt-2">
+                                    <button
+                                      onClick={async () => {
+                                        await handleAnswer(q.id, undefined, true);
+                                        setActiveQuestionId(null);
+                                      }}
+                                      disabled={loading}
+                                      className="px-3 py-1 text-xs text-faint hover:text-muted transition"
+                                    >
+                                      Skip
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        handleAnswer(q.id, currentAnswer);
+                                        setActiveQuestionId(null);
+                                      }}
+                                      disabled={!currentAnswer.trim() || loading}
+                                      className="px-3 py-1 bg-accent-blue text-white rounded text-xs hover:bg-accent-blue/80 transition disabled:opacity-50"
+                                    >
+                                      {loading ? "Saving..." : "Submit"}
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <input
+                                  type="text"
+                                  readOnly
+                                  placeholder="Click to answer..."
+                                  className="w-full px-3 py-2 rounded border border-border bg-navy/30 text-sm text-faint cursor-pointer hover:border-accent-blue/30 transition"
+                                  onClick={() => {
+                                    setActiveQuestionId(q.id);
+                                    setCurrentAnswer("");
+                                    setTimeout(() => answerInputRef.current?.focus(), 50);
+                                  }}
+                                />
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
 
-              {[...questions].sort((a, b) => {
-                const aAnswered = a.answer || a.skipped ? 1 : 0;
-                const bAnswered = b.answer || b.skipped ? 1 : 0;
-                return bAnswered - aAnswered;
-              }).map((q) => {
-                const isActive = activeQuestionId === q.id;
-                const isUnanswered = !q.answer && !q.skipped;
-
-                return (
-                  <div key={q.id} className="space-y-2">
-                    <div
-                      className={`rounded-lg p-4 border transition ${
-                        isActive
-                          ? "bg-white border-forest ring-1 ring-forest/30"
-                          : isUnanswered
-                          ? "bg-white border-sand cursor-pointer hover:border-forest/30"
-                          : "bg-white border-sand"
-                      }`}
-                      onClick={() => {
-                        if (isUnanswered && !loading) {
-                          setActiveQuestionId(isActive ? null : q.id);
-                          setCurrentAnswer("");
-                          setTimeout(() => answerInputRef.current?.focus(), 50);
-                        }
-                      }}
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className={`text-xs px-1.5 py-0.5 rounded ${
-                          q.scopeImpact === "high" ? "bg-red-100 text-red-700" :
-                          q.scopeImpact === "medium" ? "bg-yellow-100 text-yellow-700" :
-                          "bg-gray-100 text-gray-600"
-                        }`}>
-                          {q.scopeImpact} impact
-                        </span>
-                        {q.forClient && (
-                          <span className="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">for client</span>
-                        )}
-                        {isUnanswered && !isActive && (
-                          <span className="ml-auto text-xs text-gray-400">click to answer</span>
-                        )}
-                      </div>
-                      <p className="text-sm">{q.content}</p>
-
-                      {/* Inline answer input */}
-                      {isActive && phase === "scoping" && (
-                        <div className="mt-3 pt-3 border-t border-sand/50" onClick={(e) => e.stopPropagation()}>
-                          <textarea
-                            ref={answerInputRef}
-                            value={currentAnswer}
-                            onChange={(e) => setCurrentAnswer(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" && !e.shiftKey && currentAnswer.trim()) {
-                                e.preventDefault();
-                                handleAnswer(q.id, currentAnswer);
-                                setActiveQuestionId(null);
-                              }
-                            }}
-                            placeholder="Type your answer... (Enter to send, Shift+Enter for newline)"
-                            disabled={loading}
-                            rows={2}
-                            className="w-full px-3 py-2 rounded-lg border border-sand bg-cream/50 focus:outline-none focus:ring-2 focus:ring-forest text-sm resize-none"
-                          />
-                          <div className="flex items-center justify-between mt-2">
-                            <span className="text-xs text-gray-400">Your answer refines the scope in real time</span>
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => {
-                                  setCurrentAnswer(generateDummyAnswer(q.content));
-                                }}
-                                disabled={loading}
-                                className="px-3 py-1.5 text-xs text-purple-600 hover:text-purple-800 transition"
-                              >
-                                Fill dummy
-                              </button>
-                              <button
-                                onClick={async () => {
-                                  await handleAnswer(q.id, undefined, true);
-                                  setActiveQuestionId(null);
-                                }}
-                                disabled={loading}
-                                className="px-3 py-1.5 text-gray-500 text-xs hover:text-gray-700 transition"
-                              >
-                                Skip — ask client
-                              </button>
-                              <button
-                                onClick={() => {
-                                  handleAnswer(q.id, currentAnswer);
-                                  setActiveQuestionId(null);
-                                }}
-                                disabled={!currentAnswer.trim() || loading}
-                                className="px-4 py-1.5 bg-forest text-white rounded text-xs hover:bg-forest-light transition disabled:opacity-50"
-                              >
-                                {loading ? "Updating scope..." : "Submit"}
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {q.answer && (
-                      <div className="ml-8 bg-forest/5 rounded-lg p-3">
-                        <p className="text-sm text-gray-700">{q.answer}</p>
-                      </div>
-                    )}
-                    {q.skipped && (
-                      <div className="ml-8 text-xs text-gray-400 italic">Skipped — flagged for client</div>
-                    )}
-                  </div>
-                );
-              })}
-
               {phase === "complete" && (
-                <div className="bg-forest/10 rounded-lg p-4 text-center">
-                  <p className="text-forest font-medium">Scope is solid.</p>
-                  <p className="text-sm text-gray-600 mt-1">
-                    Export your scope or copy client questions above.
+                <div className="bg-accent-blue/5 rounded-lg p-4 text-center border border-accent-blue/20">
+                  <p className="text-accent-blue font-medium">Scoping complete</p>
+                  <p className="text-sm text-muted mt-1">
+                    Review your scope, assumptions, and risks on the right.
                   </p>
                 </div>
               )}
 
               {phase === "delivered" && (
-                <div className="bg-gray-800/10 rounded-lg p-4 text-center">
-                  <p className="font-medium text-gray-800">Project Delivered</p>
-                  <p className="text-sm text-gray-600 mt-1">
+                <div className="bg-surface/50 rounded-lg p-4 text-center border border-border">
+                  <p className="font-medium text-slate-200">Project Delivered</p>
+                  <p className="text-sm text-muted mt-1">
                     Log actual hours per deliverable to track estimate accuracy.
                   </p>
                 </div>
@@ -731,11 +724,11 @@ export default function ProjectPage() {
           </div>
 
           {/* Right: Scope view */}
-          <div className={`${leftPanelOpen ? "w-1/2" : "flex-1"} overflow-y-auto p-4 bg-white transition-all duration-300`}>
+          <div className={`${leftPanelOpen ? "w-1/2" : "flex-1"} overflow-y-auto p-4 bg-surface transition-all duration-300`}>
             <div className="flex items-center gap-3 mb-1">
               <button
                 onClick={() => setLeftPanelOpen(!leftPanelOpen)}
-                className="text-gray-400 hover:text-forest transition"
+                className="text-faint hover:text-accent-blue transition"
                 title={leftPanelOpen ? "Expand scope view" : "Show questions"}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
@@ -750,18 +743,26 @@ export default function ProjectPage() {
 
             {/* Scope Section */}
             <div className="mb-6">
-              <button
-                onClick={() => setScopeOpen(!scopeOpen)}
-                className="flex items-center gap-2 w-full text-left mb-1"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={`w-4 h-4 text-gray-400 transition-transform ${scopeOpen ? "rotate-90" : ""}`}>
-                  <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
-                </svg>
-                <h2 className="font-bold text-forest">Scope</h2>
-                <span className="text-xs text-gray-400">({scopeItems.length} items)</span>
-              </button>
+              <div className="flex items-center justify-between mb-1">
+                <button
+                  onClick={() => setScopeOpen(!scopeOpen)}
+                  className="flex items-center gap-2 text-left"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={`w-4 h-4 text-faint transition-transform ${scopeOpen ? "rotate-90" : ""}`}>
+                    <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+                  </svg>
+                  <h2 className="font-extrabold text-slate-100">Scope</h2>
+                  <span className="text-xs text-faint">({scopeItems.length} items)</span>
+                </button>
+                <button
+                  onClick={() => { setScopeOpen(true); setAddingItemToPhase(Array.from(phases.keys())[0] ?? "New Phase"); }}
+                  className="text-xs text-faint hover:text-accent-blue transition"
+                >
+                  + Add item
+                </button>
+              </div>
               {scopeOpen && (
-                <p className="text-xs text-gray-400 mb-4 ml-6">Click phase names, deliverables, or hour estimates to edit</p>
+                <p className="text-xs text-faint mb-4 ml-6">Click phase names, deliverables, or hour estimates to edit</p>
               )}
             </div>
 
@@ -773,7 +774,7 @@ export default function ProjectPage() {
 
               return (
                 <div key={phaseName} className="mb-6">
-                  <div className="flex items-center justify-between mb-2 group">
+                  <div className="flex items-center justify-between mb-2">
                     {editingPhase === phaseName ? (
                       <div className="flex items-center gap-2 flex-1">
                         <input
@@ -781,33 +782,92 @@ export default function ProjectPage() {
                           onChange={(e) => setEditPhaseName(e.target.value)}
                           onKeyDown={(e) => { if (e.key === "Enter") handleRenamePhase(phaseName); if (e.key === "Escape") setEditingPhase(null); }}
                           autoFocus
-                          className="font-medium text-gray-900 px-2 py-0.5 border border-sand rounded bg-white focus:outline-none focus:ring-1 focus:ring-forest flex-1"
+                          className="font-medium text-slate-100 px-2 py-0.5 border border-border rounded bg-surface focus:outline-none focus:ring-1 focus:ring-accent-blue flex-1"
                         />
-                        <button onClick={() => handleRenamePhase(phaseName)} className="text-xs text-forest font-medium">Save</button>
-                        <button onClick={() => setEditingPhase(null)} className="text-xs text-gray-400">Cancel</button>
+                        <button onClick={() => handleRenamePhase(phaseName)} className="text-xs text-accent-blue font-medium">Save</button>
+                        <button onClick={() => setEditingPhase(null)} className="text-xs text-faint">Cancel</button>
                       </div>
                     ) : (
                       <>
                         <h3
-                          className="font-medium text-gray-900 cursor-pointer hover:text-forest transition"
+                          className="font-medium text-slate-100 cursor-pointer hover:text-accent-blue transition"
                           onClick={() => { setEditingPhase(phaseName); setEditPhaseName(phaseName); }}
                           title="Click to rename phase"
                         >
                           {phaseName}
                         </h3>
-                        <button
-                          onClick={() => setAddingItemToPhase(phaseName)}
-                          className="opacity-0 group-hover:opacity-100 text-xs text-gray-400 hover:text-forest transition-opacity"
+                        <span
+                          className="text-xs text-dim cursor-pointer hover:text-accent-blue transition"
+                          onClick={() => setEditingPhaseHours(editingPhaseHours === phaseName ? null : phaseName)}
+                          title="Click to edit hours"
                         >
-                          + Add item
-                        </button>
+                          {phaseOptimistic} — {phaseLikely} — {phasePessimistic}h
+                        </span>
                       </>
                     )}
                   </div>
+                  {editingPhaseHours === phaseName && (
+                    <div className="mb-3 p-3 bg-navy/50 rounded-lg border border-border/50 space-y-3">
+                      {items.map((item) => (
+                        <div key={item.id}>
+                          <div className="text-xs text-muted mb-1">{item.deliverable}</div>
+                          <div className="grid grid-cols-3 gap-2">
+                            <div>
+                              <label className="text-[10px] text-faint block">Optimistic</label>
+                              <input
+                                type="number"
+                                min={0}
+                                defaultValue={item.optimisticHours}
+                                onBlur={(e) => {
+                                  const val = parseInt(e.target.value) || 0;
+                                  if (val !== item.optimisticHours) handleSaveHours(item.id, { optimistic: val, likely: item.likelyHours, pessimistic: item.pessimisticHours });
+                                }}
+                                className="w-full px-2 py-1 text-sm border border-border rounded bg-surface focus:outline-none focus:ring-1 focus:ring-accent-blue"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[10px] text-faint block">Likely</label>
+                              <input
+                                type="number"
+                                min={0}
+                                defaultValue={item.likelyHours}
+                                onBlur={(e) => {
+                                  const val = parseInt(e.target.value) || 0;
+                                  if (val !== item.likelyHours) handleSaveHours(item.id, { optimistic: item.optimisticHours, likely: val, pessimistic: item.pessimisticHours });
+                                }}
+                                className="w-full px-2 py-1 text-sm border border-border rounded bg-surface focus:outline-none focus:ring-1 focus:ring-accent-blue"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[10px] text-faint block">Pessimistic</label>
+                              <input
+                                type="number"
+                                min={0}
+                                defaultValue={item.pessimisticHours}
+                                onBlur={(e) => {
+                                  const val = parseInt(e.target.value) || 0;
+                                  if (val !== item.pessimisticHours) handleSaveHours(item.id, { optimistic: item.optimisticHours, likely: item.likelyHours, pessimistic: val });
+                                }}
+                                className="w-full px-2 py-1 text-sm border border-border rounded bg-surface focus:outline-none focus:ring-1 focus:ring-accent-blue"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                      <div className="flex justify-end">
+                        <button
+                          onClick={() => setEditingPhaseHours(null)}
+                          className="text-xs text-dim hover:text-slate-300 transition"
+                        >
+                          Done
+                        </button>
+                      </div>
+                    </div>
+                  )}
                   <div className="space-y-1">
                     {items.map((item) => (
                       <div key={item.id}>
-                        <div className="flex items-center justify-between text-sm py-1.5 px-2 rounded hover:bg-cream/50 group">
+                        <div className="flex items-center justify-between text-sm py-1.5 px-2 rounded hover:bg-surface/50 group">
                           {editingDeliverable === item.id ? (
                             <div className="flex items-center gap-2 flex-1 mr-2">
                               <input
@@ -815,28 +875,21 @@ export default function ProjectPage() {
                                 onChange={(e) => setEditDeliverableName(e.target.value)}
                                 onKeyDown={(e) => { if (e.key === "Enter") handleSaveDeliverable(item.id); if (e.key === "Escape") setEditingDeliverable(null); }}
                                 autoFocus
-                                className="text-sm text-gray-700 px-2 py-0.5 border border-sand rounded bg-white focus:outline-none focus:ring-1 focus:ring-forest flex-1"
+                                className="text-sm text-slate-300 px-2 py-0.5 border border-border rounded bg-surface focus:outline-none focus:ring-1 focus:ring-accent-blue flex-1"
                               />
-                              <button onClick={() => handleSaveDeliverable(item.id)} className="text-xs text-forest font-medium">Save</button>
-                              <button onClick={() => setEditingDeliverable(null)} className="text-xs text-gray-400">Cancel</button>
+                              <button onClick={() => handleSaveDeliverable(item.id)} className="text-xs text-accent-blue font-medium">Save</button>
+                              <button onClick={() => setEditingDeliverable(null)} className="text-xs text-faint">Cancel</button>
                             </div>
                           ) : (
                             <span
-                              className="text-gray-700 cursor-pointer hover:text-forest transition"
+                              className="text-slate-300 cursor-pointer hover:text-accent-blue transition"
                               onClick={() => { setEditingDeliverable(item.id); setEditDeliverableName(item.deliverable); }}
                               title="Click to edit"
                             >
                               {item.deliverable}
                             </span>
                           )}
-                          <div className="flex items-center gap-2 text-xs text-gray-500 flex-shrink-0">
-                            <span>{item.optimisticHours} — {item.likelyHours} — {item.pessimisticHours}h</span>
-                            <div className="w-12 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                              <div
-                                className="h-full bg-forest rounded-full"
-                                style={{ width: `${item.confidence}%` }}
-                              />
-                            </div>
+                          <div className="flex items-center gap-2 text-xs text-dim flex-shrink-0">
                             <button
                               onClick={() => {
                                 setEditingItemId(item.id);
@@ -846,7 +899,7 @@ export default function ProjectPage() {
                                   pessimistic: item.pessimisticHours,
                                 });
                               }}
-                              className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-forest transition-opacity ml-1"
+                              className="opacity-0 group-hover:opacity-100 text-faint hover:text-accent-blue transition-opacity ml-1"
                               title="Edit hours"
                             >
                               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
@@ -855,7 +908,7 @@ export default function ProjectPage() {
                             </button>
                             <button
                               onClick={() => handleDeleteScopeItem(item.id)}
-                              className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-opacity"
+                              className="opacity-0 group-hover:opacity-100 text-faint hover:text-red-500 transition-opacity"
                               title="Delete item"
                             >
                               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
@@ -867,49 +920,49 @@ export default function ProjectPage() {
 
                         {/* Inline edit for hours */}
                         {editingItemId === item.id && (
-                          <div className="mx-2 mb-2 p-3 bg-cream/50 rounded-lg border border-sand/50">
+                          <div className="mx-2 mb-2 p-3 bg-navy/50 rounded-lg border border-border/50">
                             <div className="grid grid-cols-3 gap-3 mb-3">
                               <div>
-                                <label className="text-xs text-gray-500 block mb-1">Optimistic</label>
+                                <label className="text-xs text-dim block mb-1">Optimistic</label>
                                 <input
                                   type="number"
                                   min={0}
                                   value={editHours.optimistic}
                                   onChange={(e) => setEditHours({ ...editHours, optimistic: parseInt(e.target.value) || 0 })}
-                                  className="w-full px-2 py-1 text-sm border border-sand rounded bg-white focus:outline-none focus:ring-1 focus:ring-forest"
+                                  className="w-full px-2 py-1 text-sm border border-border rounded bg-surface focus:outline-none focus:ring-1 focus:ring-accent-blue"
                                 />
                               </div>
                               <div>
-                                <label className="text-xs text-gray-500 block mb-1">Likely</label>
+                                <label className="text-xs text-dim block mb-1">Likely</label>
                                 <input
                                   type="number"
                                   min={0}
                                   value={editHours.likely}
                                   onChange={(e) => setEditHours({ ...editHours, likely: parseInt(e.target.value) || 0 })}
-                                  className="w-full px-2 py-1 text-sm border border-sand rounded bg-white focus:outline-none focus:ring-1 focus:ring-forest"
+                                  className="w-full px-2 py-1 text-sm border border-border rounded bg-surface focus:outline-none focus:ring-1 focus:ring-accent-blue"
                                 />
                               </div>
                               <div>
-                                <label className="text-xs text-gray-500 block mb-1">Pessimistic</label>
+                                <label className="text-xs text-dim block mb-1">Pessimistic</label>
                                 <input
                                   type="number"
                                   min={0}
                                   value={editHours.pessimistic}
                                   onChange={(e) => setEditHours({ ...editHours, pessimistic: parseInt(e.target.value) || 0 })}
-                                  className="w-full px-2 py-1 text-sm border border-sand rounded bg-white focus:outline-none focus:ring-1 focus:ring-forest"
+                                  className="w-full px-2 py-1 text-sm border border-border rounded bg-surface focus:outline-none focus:ring-1 focus:ring-accent-blue"
                                 />
                               </div>
                             </div>
                             <div className="flex justify-end gap-2">
                               <button
                                 onClick={() => setEditingItemId(null)}
-                                className="px-3 py-1 text-xs text-gray-500 hover:text-gray-700 transition"
+                                className="px-3 py-1 text-xs text-dim hover:text-slate-300 transition"
                               >
                                 Cancel
                               </button>
                               <button
                                 onClick={() => handleSaveHours(item.id)}
-                                className="px-3 py-1 text-xs bg-forest text-white rounded hover:bg-forest-light transition"
+                                className="px-3 py-1 text-xs bg-accent-blue text-white rounded hover:bg-accent-blue/80 transition"
                               >
                                 Save
                               </button>
@@ -921,42 +974,42 @@ export default function ProjectPage() {
 
                     {/* Add new item to phase */}
                     {addingItemToPhase === phaseName && (
-                      <div className="mx-2 p-3 bg-cream/50 rounded-lg border border-sand/50 space-y-2">
+                      <div className="mx-2 p-3 bg-navy/50 rounded-lg border border-border/50 space-y-2">
                         <input
                           value={newItem.deliverable}
                           onChange={(e) => setNewItem({ ...newItem, deliverable: e.target.value })}
                           placeholder="Deliverable name..."
                           autoFocus
                           onKeyDown={(e) => { if (e.key === "Enter" && newItem.deliverable.trim()) handleAddScopeItem(phaseName); if (e.key === "Escape") setAddingItemToPhase(null); }}
-                          className="w-full px-2 py-1 text-sm border border-sand rounded bg-white focus:outline-none focus:ring-1 focus:ring-forest"
+                          className="w-full px-2 py-1 text-sm border border-border rounded bg-surface focus:outline-none focus:ring-1 focus:ring-accent-blue"
                         />
                         <div className="grid grid-cols-3 gap-3">
                           <div>
-                            <label className="text-xs text-gray-500 block mb-1">Optimistic hrs</label>
-                            <input type="number" min={0} value={newItem.optimistic || ""} onChange={(e) => setNewItem({ ...newItem, optimistic: parseInt(e.target.value) || 0 })} className="w-full px-2 py-1 text-sm border border-sand rounded bg-white focus:outline-none focus:ring-1 focus:ring-forest" />
+                            <label className="text-xs text-dim block mb-1">Optimistic hrs</label>
+                            <input type="number" min={0} value={newItem.optimistic || ""} onChange={(e) => setNewItem({ ...newItem, optimistic: parseInt(e.target.value) || 0 })} className="w-full px-2 py-1 text-sm border border-border rounded bg-surface focus:outline-none focus:ring-1 focus:ring-accent-blue" />
                           </div>
                           <div>
-                            <label className="text-xs text-gray-500 block mb-1">Likely hrs</label>
-                            <input type="number" min={0} value={newItem.likely || ""} onChange={(e) => setNewItem({ ...newItem, likely: parseInt(e.target.value) || 0 })} className="w-full px-2 py-1 text-sm border border-sand rounded bg-white focus:outline-none focus:ring-1 focus:ring-forest" />
+                            <label className="text-xs text-dim block mb-1">Likely hrs</label>
+                            <input type="number" min={0} value={newItem.likely || ""} onChange={(e) => setNewItem({ ...newItem, likely: parseInt(e.target.value) || 0 })} className="w-full px-2 py-1 text-sm border border-border rounded bg-surface focus:outline-none focus:ring-1 focus:ring-accent-blue" />
                           </div>
                           <div>
-                            <label className="text-xs text-gray-500 block mb-1">Pessimistic hrs</label>
-                            <input type="number" min={0} value={newItem.pessimistic || ""} onChange={(e) => setNewItem({ ...newItem, pessimistic: parseInt(e.target.value) || 0 })} className="w-full px-2 py-1 text-sm border border-sand rounded bg-white focus:outline-none focus:ring-1 focus:ring-forest" />
+                            <label className="text-xs text-dim block mb-1">Pessimistic hrs</label>
+                            <input type="number" min={0} value={newItem.pessimistic || ""} onChange={(e) => setNewItem({ ...newItem, pessimistic: parseInt(e.target.value) || 0 })} className="w-full px-2 py-1 text-sm border border-border rounded bg-surface focus:outline-none focus:ring-1 focus:ring-accent-blue" />
                           </div>
                         </div>
                         <div className="flex justify-end gap-2">
-                          <button onClick={() => { setAddingItemToPhase(null); setNewItem({ deliverable: "", optimistic: 0, likely: 0, pessimistic: 0 }); }} className="text-xs text-gray-400 hover:text-gray-600">Cancel</button>
-                          <button onClick={() => handleAddScopeItem(phaseName)} disabled={!newItem.deliverable.trim()} className="text-xs text-forest font-medium disabled:opacity-50">Add</button>
+                          <button onClick={() => { setAddingItemToPhase(null); setNewItem({ deliverable: "", optimistic: 0, likely: 0, pessimistic: 0 }); }} className="text-xs text-faint hover:text-muted">Cancel</button>
+                          <button onClick={() => handleAddScopeItem(phaseName)} disabled={!newItem.deliverable.trim()} className="text-xs text-accent-blue font-medium disabled:opacity-50">Add</button>
                         </div>
                       </div>
                     )}
                   </div>
-                  <div className="flex justify-between text-xs text-gray-500 mt-2 px-2 pt-1 border-t border-sand/30">
+                  <div className="flex justify-between text-xs text-dim mt-2 px-2 pt-1 border-t border-border/30">
                     <span className="font-medium">{phaseName} subtotal</span>
                     <span>
                       {phaseOptimistic} — {phaseLikely} — {phasePessimistic}h
                       {rateConfig.blendedRate > 0 && (
-                        <span className="ml-2 text-forest">{calcPrice(phaseOptimistic)} — {calcPrice(phaseLikely)} — {calcPrice(phasePessimistic)}</span>
+                        <span className="ml-2 text-accent-blue">{calcPrice(phaseOptimistic)} — {calcPrice(phaseLikely)} — {calcPrice(phasePessimistic)}</span>
                       )}
                     </span>
                   </div>
@@ -965,105 +1018,105 @@ export default function ProjectPage() {
             })}
 
             {/* Rate Config */}
-            <div className="mb-6 p-3 bg-cream/30 rounded-lg border border-sand/50">
+            <div className="mb-6 p-3 bg-navy/30 rounded-lg border border-border/50">
               <div className="flex items-center justify-between mb-2">
-                <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide">Rate Config</h3>
+                <h3 className="text-xs font-medium text-dim uppercase tracking-wide">Rate Config</h3>
                 {!editingRate ? (
                   <button
                     onClick={() => setEditingRate(true)}
-                    className="text-xs text-gray-400 hover:text-forest transition"
+                    className="text-xs text-faint hover:text-accent-blue transition"
                   >
                     {rateConfig.blendedRate ? "Edit" : "Set rate"}
                   </button>
                 ) : (
                   <div className="flex gap-2">
-                    <button onClick={() => setEditingRate(false)} className="text-xs text-gray-400 hover:text-gray-600">Cancel</button>
-                    <button onClick={handleSaveRate} className="text-xs text-forest hover:text-forest-light font-medium">Save</button>
+                    <button onClick={() => setEditingRate(false)} className="text-xs text-faint hover:text-muted">Cancel</button>
+                    <button onClick={handleSaveRate} className="text-xs text-accent-blue hover:text-accent-blue/80 font-medium">Save</button>
                   </div>
                 )}
               </div>
               {editingRate ? (
                 <div className="grid grid-cols-3 gap-3">
                   <div>
-                    <label className="text-xs text-gray-500 block mb-1">Rate ($/hr)</label>
+                    <label className="text-xs text-dim block mb-1">Rate ($/hr)</label>
                     <input
                       type="number"
                       min={0}
                       value={rateConfig.blendedRate / 100 || ""}
                       onChange={(e) => setRateConfig({ ...rateConfig, blendedRate: Math.round(parseFloat(e.target.value || "0") * 100) })}
-                      className="w-full px-2 py-1 text-sm border border-sand rounded bg-white focus:outline-none focus:ring-1 focus:ring-forest"
+                      className="w-full px-2 py-1 text-sm border border-border rounded bg-surface focus:outline-none focus:ring-1 focus:ring-accent-blue"
                       placeholder="150"
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500 block mb-1">Margin %</label>
+                    <label className="text-xs text-dim block mb-1">Margin %</label>
                     <input
                       type="number"
                       min={0}
                       value={rateConfig.marginPercent || ""}
                       onChange={(e) => setRateConfig({ ...rateConfig, marginPercent: parseInt(e.target.value || "0") })}
-                      className="w-full px-2 py-1 text-sm border border-sand rounded bg-white focus:outline-none focus:ring-1 focus:ring-forest"
+                      className="w-full px-2 py-1 text-sm border border-border rounded bg-surface focus:outline-none focus:ring-1 focus:ring-accent-blue"
                       placeholder="0"
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500 block mb-1">Hrs/week</label>
+                    <label className="text-xs text-dim block mb-1">Hrs/week</label>
                     <input
                       type="number"
                       min={1}
                       value={rateConfig.weeklyCapacity}
                       onChange={(e) => setRateConfig({ ...rateConfig, weeklyCapacity: parseInt(e.target.value || "30") })}
-                      className="w-full px-2 py-1 text-sm border border-sand rounded bg-white focus:outline-none focus:ring-1 focus:ring-forest"
+                      className="w-full px-2 py-1 text-sm border border-border rounded bg-surface focus:outline-none focus:ring-1 focus:ring-accent-blue"
                       placeholder="30"
                     />
                   </div>
                 </div>
               ) : rateConfig.blendedRate ? (
-                <div className="text-sm text-gray-600">
+                <div className="text-sm text-muted">
                   ${(rateConfig.blendedRate / 100).toFixed(0)}/hr
                   {rateConfig.marginPercent ? ` + ${rateConfig.marginPercent}% margin` : ""}
                   {" · "}{rateConfig.weeklyCapacity}hrs/week
                 </div>
               ) : (
-                <div className="text-sm text-gray-400 italic">No rate set — set to see pricing</div>
+                <div className="text-sm text-faint italic">No rate set — set to see pricing</div>
               )}
             </div>
 
             {scopeItems.length > 0 && (
-              <div className="border-t-2 border-forest/20 pt-4 mb-6">
+              <div className="border-t-2 border-accent-blue/20 pt-4 mb-6">
                 <div className="flex justify-between text-sm font-medium mb-1">
                   <span>Total estimate</span>
                 </div>
                 <div className="grid grid-cols-3 gap-4 text-center">
                   <div>
-                    <div className="text-xs text-gray-500 mb-1">Optimistic</div>
-                    <div className="text-lg font-semibold text-forest">
+                    <div className="text-xs text-dim mb-1">Optimistic</div>
+                    <div className="text-lg font-semibold text-accent-blue">
                       {scopeItems.reduce((s, i) => s + i.optimisticHours, 0)}h
                     </div>
                     {rateConfig.blendedRate > 0 && (
-                      <div className="text-sm text-gray-600">
+                      <div className="text-sm text-muted">
                         {calcPrice(scopeItems.reduce((s, i) => s + i.optimisticHours, 0))}
                       </div>
                     )}
                   </div>
                   <div>
-                    <div className="text-xs text-gray-500 mb-1">Realistic</div>
-                    <div className="text-lg font-semibold text-forest">
+                    <div className="text-xs text-dim mb-1">Realistic</div>
+                    <div className="text-lg font-semibold text-accent-blue">
                       {scopeItems.reduce((s, i) => s + i.likelyHours, 0)}h
                     </div>
                     {rateConfig.blendedRate > 0 && (
-                      <div className="text-sm text-gray-600">
+                      <div className="text-sm text-muted">
                         {calcPrice(scopeItems.reduce((s, i) => s + i.likelyHours, 0))}
                       </div>
                     )}
                   </div>
                   <div>
-                    <div className="text-xs text-gray-500 mb-1">Pessimistic</div>
-                    <div className="text-lg font-semibold text-forest">
+                    <div className="text-xs text-dim mb-1">Pessimistic</div>
+                    <div className="text-lg font-semibold text-accent-blue">
                       {scopeItems.reduce((s, i) => s + i.pessimisticHours, 0)}h
                     </div>
                     {rateConfig.blendedRate > 0 && (
-                      <div className="text-sm text-gray-600">
+                      <div className="text-sm text-muted">
                         {calcPrice(scopeItems.reduce((s, i) => s + i.pessimisticHours, 0))}
                       </div>
                     )}
@@ -1074,41 +1127,41 @@ export default function ProjectPage() {
             </>)}
 
             <div className="mb-6">
-              <button
-                onClick={() => setAssumptionsOpen(!assumptionsOpen)}
-                className="flex items-center gap-2 w-full text-left mb-2"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={`w-4 h-4 text-gray-400 transition-transform ${assumptionsOpen ? "rotate-90" : ""}`}>
-                  <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
-                </svg>
-                <h2 className="font-bold text-forest">Assumptions</h2>
-                <span className="text-xs text-gray-400">({assumptions.length})</span>
-              </button>
-              {assumptionsOpen && (<>
               <div className="flex items-center justify-between mb-2">
-                <p className="text-xs text-gray-400 ml-6">Click to edit</p>
                 <button
-                  onClick={() => setAddingAssumption(true)}
-                  className="text-xs text-gray-400 hover:text-forest transition"
+                  onClick={() => setAssumptionsOpen(!assumptionsOpen)}
+                  className="flex items-center gap-2 text-left"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={`w-4 h-4 text-faint transition-transform ${assumptionsOpen ? "rotate-90" : ""}`}>
+                    <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+                  </svg>
+                  <h2 className="font-extrabold text-slate-100">Assumptions</h2>
+                  <span className="text-xs text-faint">({assumptions.length})</span>
+                </button>
+                <button
+                  onClick={() => { setAssumptionsOpen(true); setAddingAssumption(true); }}
+                  className="text-xs text-faint hover:text-accent-blue transition"
                 >
                   + Add
                 </button>
               </div>
+              {assumptionsOpen && (<>
+              <p className="text-xs text-faint mb-2 ml-6">Click to edit</p>
               <div className="space-y-1">
                 {assumptions.map((a) => (
                   <div key={a.id}>
                     {editingAssumptionId === a.id ? (
-                      <div className="p-2 bg-cream/50 rounded-lg border border-sand/50 space-y-2">
+                      <div className="p-2 bg-navy/50 rounded-lg border border-border/50 space-y-2">
                         <input
                           value={editAssumption.content}
                           onChange={(e) => setEditAssumption({ ...editAssumption, content: e.target.value })}
-                          className="w-full px-2 py-1 text-sm border border-sand rounded bg-white focus:outline-none focus:ring-1 focus:ring-forest"
+                          className="w-full px-2 py-1 text-sm border border-border rounded bg-surface focus:outline-none focus:ring-1 focus:ring-accent-blue"
                         />
                         <div className="flex items-center gap-2">
                           <select
                             value={editAssumption.status}
                             onChange={(e) => setEditAssumption({ ...editAssumption, status: e.target.value })}
-                            className="px-2 py-1 text-xs border border-sand rounded bg-white"
+                            className="px-2 py-1 text-xs border border-border rounded bg-surface"
                           >
                             <option value="unresolved">Unresolved</option>
                             <option value="accepted">Accepted</option>
@@ -1116,13 +1169,13 @@ export default function ProjectPage() {
                           </select>
                           <div className="flex-1" />
                           <button onClick={() => handleDeleteAssumption(a.id)} className="text-xs text-red-400 hover:text-red-600">Delete</button>
-                          <button onClick={() => setEditingAssumptionId(null)} className="text-xs text-gray-400 hover:text-gray-600">Cancel</button>
-                          <button onClick={() => handleSaveAssumption(a.id)} className="text-xs text-forest font-medium">Save</button>
+                          <button onClick={() => setEditingAssumptionId(null)} className="text-xs text-faint hover:text-muted">Cancel</button>
+                          <button onClick={() => handleSaveAssumption(a.id)} className="text-xs text-accent-blue font-medium">Save</button>
                         </div>
                       </div>
                     ) : (
                       <div
-                        className="flex items-center gap-2 text-sm py-1.5 px-2 group cursor-pointer hover:bg-cream/50 rounded"
+                        className="flex items-center gap-2 text-sm py-1.5 px-2 group cursor-pointer hover:bg-surface/50 rounded"
                         onClick={() => {
                           setEditingAssumptionId(a.id);
                           setEditAssumption({ content: a.content, status: a.status });
@@ -1133,72 +1186,72 @@ export default function ProjectPage() {
                           a.status === "rejected" ? "bg-red-500" :
                           "bg-yellow-500"
                         }`} />
-                        <span className="text-gray-700 flex-1">{a.content}</span>
-                        <span className="opacity-0 group-hover:opacity-100 text-xs text-gray-400 transition-opacity">edit</span>
+                        <span className="text-slate-300 flex-1">{a.content}</span>
+                        <span className="opacity-0 group-hover:opacity-100 text-xs text-faint transition-opacity">edit</span>
                       </div>
                     )}
                   </div>
                 ))}
                 {addingAssumption && (
-                  <div className="p-2 bg-cream/50 rounded-lg border border-sand/50 space-y-2">
+                  <div className="p-2 bg-navy/50 rounded-lg border border-border/50 space-y-2">
                     <input
                       value={newAssumption}
                       onChange={(e) => setNewAssumption(e.target.value)}
                       placeholder="New assumption..."
                       autoFocus
                       onKeyDown={(e) => { if (e.key === "Enter" && newAssumption.trim()) handleAddAssumption(); }}
-                      className="w-full px-2 py-1 text-sm border border-sand rounded bg-white focus:outline-none focus:ring-1 focus:ring-forest"
+                      className="w-full px-2 py-1 text-sm border border-border rounded bg-surface focus:outline-none focus:ring-1 focus:ring-accent-blue"
                     />
                     <div className="flex justify-end gap-2">
-                      <button onClick={() => { setAddingAssumption(false); setNewAssumption(""); }} className="text-xs text-gray-400 hover:text-gray-600">Cancel</button>
-                      <button onClick={handleAddAssumption} disabled={!newAssumption.trim()} className="text-xs text-forest font-medium disabled:opacity-50">Add</button>
+                      <button onClick={() => { setAddingAssumption(false); setNewAssumption(""); }} className="text-xs text-faint hover:text-muted">Cancel</button>
+                      <button onClick={handleAddAssumption} disabled={!newAssumption.trim()} className="text-xs text-accent-blue font-medium disabled:opacity-50">Add</button>
                     </div>
                   </div>
                 )}
                 {assumptions.length === 0 && !addingAssumption && (
-                  <div className="text-sm text-gray-400 italic">No assumptions yet</div>
+                  <div className="text-sm text-faint italic">No assumptions yet</div>
                 )}
               </div>
               </>)}
             </div>
 
             <div className="mb-6">
-              <button
-                onClick={() => setRisksOpen(!risksOpen)}
-                className="flex items-center gap-2 w-full text-left mb-2"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={`w-4 h-4 text-gray-400 transition-transform ${risksOpen ? "rotate-90" : ""}`}>
-                  <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
-                </svg>
-                <h2 className="font-bold text-forest">Risks</h2>
-                <span className="text-xs text-gray-400">({risks.length})</span>
-              </button>
-              {risksOpen && (<>
               <div className="flex items-center justify-between mb-2">
-                <p className="text-xs text-gray-400 ml-6">Click to edit</p>
                 <button
-                  onClick={() => setAddingRisk(true)}
-                  className="text-xs text-gray-400 hover:text-forest transition"
+                  onClick={() => setRisksOpen(!risksOpen)}
+                  className="flex items-center gap-2 text-left"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={`w-4 h-4 text-faint transition-transform ${risksOpen ? "rotate-90" : ""}`}>
+                    <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+                  </svg>
+                  <h2 className="font-extrabold text-slate-100">Risks</h2>
+                  <span className="text-xs text-faint">({risks.length})</span>
+                </button>
+                <button
+                  onClick={() => { setRisksOpen(true); setAddingRisk(true); }}
+                  className="text-xs text-faint hover:text-accent-blue transition"
                 >
                   + Add
                 </button>
               </div>
+              {risksOpen && (<>
+              <p className="text-xs text-faint mb-2 ml-6">Click to edit</p>
               <div className="space-y-1">
                 {risks.map((r) => (
                   <div key={r.id}>
                     {editingRiskId === r.id ? (
-                      <div className="p-2 bg-cream/50 rounded-lg border border-sand/50 space-y-2">
+                      <div className="p-2 bg-navy/50 rounded-lg border border-border/50 space-y-2">
                         <input
                           value={editRisk.content}
                           onChange={(e) => setEditRisk({ ...editRisk, content: e.target.value })}
                           placeholder="Risk description..."
-                          className="w-full px-2 py-1 text-sm border border-sand rounded bg-white focus:outline-none focus:ring-1 focus:ring-forest"
+                          className="w-full px-2 py-1 text-sm border border-border rounded bg-surface focus:outline-none focus:ring-1 focus:ring-accent-blue"
                         />
                         <div className="flex gap-2">
                           <select
                             value={editRisk.severity}
                             onChange={(e) => setEditRisk({ ...editRisk, severity: e.target.value })}
-                            className="px-2 py-1 text-xs border border-sand rounded bg-white"
+                            className="px-2 py-1 text-xs border border-border rounded bg-surface"
                           >
                             <option value="low">Low</option>
                             <option value="medium">Medium</option>
@@ -1208,19 +1261,19 @@ export default function ProjectPage() {
                             value={editRisk.mitigation}
                             onChange={(e) => setEditRisk({ ...editRisk, mitigation: e.target.value })}
                             placeholder="Mitigation (optional)"
-                            className="flex-1 px-2 py-1 text-xs border border-sand rounded bg-white focus:outline-none focus:ring-1 focus:ring-forest"
+                            className="flex-1 px-2 py-1 text-xs border border-border rounded bg-surface focus:outline-none focus:ring-1 focus:ring-accent-blue"
                           />
                         </div>
                         <div className="flex items-center gap-2">
                           <div className="flex-1" />
                           <button onClick={() => handleDeleteRisk(r.id)} className="text-xs text-red-400 hover:text-red-600">Delete</button>
-                          <button onClick={() => setEditingRiskId(null)} className="text-xs text-gray-400 hover:text-gray-600">Cancel</button>
-                          <button onClick={() => handleSaveRisk(r.id)} className="text-xs text-forest font-medium">Save</button>
+                          <button onClick={() => setEditingRiskId(null)} className="text-xs text-faint hover:text-muted">Cancel</button>
+                          <button onClick={() => handleSaveRisk(r.id)} className="text-xs text-accent-blue font-medium">Save</button>
                         </div>
                       </div>
                     ) : (
                       <div
-                        className="py-1.5 px-2 group cursor-pointer hover:bg-cream/50 rounded"
+                        className="py-1.5 px-2 group cursor-pointer hover:bg-surface/50 rounded"
                         onClick={() => {
                           setEditingRiskId(r.id);
                           setEditRisk({ content: r.content, severity: r.severity, mitigation: r.mitigation ?? "" });
@@ -1230,15 +1283,15 @@ export default function ProjectPage() {
                           <span className={`text-xs font-medium mr-2 flex-shrink-0 ${
                             r.severity === "high" ? "text-red-600" :
                             r.severity === "medium" ? "text-yellow-600" :
-                            "text-gray-500"
+                            "text-dim"
                           }`}>
                             {r.severity.toUpperCase()}
                           </span>
-                          <span className="text-gray-700 flex-1">{r.content}</span>
-                          <span className="opacity-0 group-hover:opacity-100 text-xs text-gray-400 transition-opacity ml-2">edit</span>
+                          <span className="text-slate-300 flex-1">{r.content}</span>
+                          <span className="opacity-0 group-hover:opacity-100 text-xs text-faint transition-opacity ml-2">edit</span>
                         </div>
                         {r.mitigation && (
-                          <div className="ml-12 mt-1 text-xs text-gray-500 italic">
+                          <div className="ml-12 mt-1 text-xs text-dim italic">
                             Mitigation: {r.mitigation}
                           </div>
                         )}
@@ -1247,19 +1300,19 @@ export default function ProjectPage() {
                   </div>
                 ))}
                 {addingRisk && (
-                  <div className="p-2 bg-cream/50 rounded-lg border border-sand/50 space-y-2">
+                  <div className="p-2 bg-navy/50 rounded-lg border border-border/50 space-y-2">
                     <input
                       value={newRisk.content}
                       onChange={(e) => setNewRisk({ ...newRisk, content: e.target.value })}
                       placeholder="Risk description..."
                       autoFocus
-                      className="w-full px-2 py-1 text-sm border border-sand rounded bg-white focus:outline-none focus:ring-1 focus:ring-forest"
+                      className="w-full px-2 py-1 text-sm border border-border rounded bg-surface focus:outline-none focus:ring-1 focus:ring-accent-blue"
                     />
                     <div className="flex gap-2">
                       <select
                         value={newRisk.severity}
                         onChange={(e) => setNewRisk({ ...newRisk, severity: e.target.value })}
-                        className="px-2 py-1 text-xs border border-sand rounded bg-white"
+                        className="px-2 py-1 text-xs border border-border rounded bg-surface"
                       >
                         <option value="low">Low</option>
                         <option value="medium">Medium</option>
@@ -1269,17 +1322,17 @@ export default function ProjectPage() {
                         value={newRisk.mitigation}
                         onChange={(e) => setNewRisk({ ...newRisk, mitigation: e.target.value })}
                         placeholder="Mitigation (optional)"
-                        className="flex-1 px-2 py-1 text-xs border border-sand rounded bg-white focus:outline-none focus:ring-1 focus:ring-forest"
+                        className="flex-1 px-2 py-1 text-xs border border-border rounded bg-surface focus:outline-none focus:ring-1 focus:ring-accent-blue"
                       />
                     </div>
                     <div className="flex justify-end gap-2">
-                      <button onClick={() => { setAddingRisk(false); setNewRisk({ content: "", severity: "medium", mitigation: "" }); }} className="text-xs text-gray-400 hover:text-gray-600">Cancel</button>
-                      <button onClick={handleAddRisk} disabled={!newRisk.content.trim()} className="text-xs text-forest font-medium disabled:opacity-50">Add</button>
+                      <button onClick={() => { setAddingRisk(false); setNewRisk({ content: "", severity: "medium", mitigation: "" }); }} className="text-xs text-faint hover:text-muted">Cancel</button>
+                      <button onClick={handleAddRisk} disabled={!newRisk.content.trim()} className="text-xs text-accent-blue font-medium disabled:opacity-50">Add</button>
                     </div>
                   </div>
                 )}
                 {risks.length === 0 && !addingRisk && (
-                  <div className="text-sm text-gray-400 italic">No risks flagged yet</div>
+                  <div className="text-sm text-faint italic">No risks flagged yet</div>
                 )}
               </div>
               </>)}
@@ -1287,25 +1340,25 @@ export default function ProjectPage() {
 
             {/* Generate Proposal */}
             {phase === "complete" && (
-              <div className="border-t-2 border-forest/20 pt-4 mt-6">
+              <div className="border-t-2 border-accent-blue/20 pt-4 mt-6">
                 {!showProposalOptions ? (
                   <button
                     onClick={() => setShowProposalOptions(true)}
                     disabled={!rateConfig.blendedRate}
-                    className="w-full px-4 py-3 bg-forest text-white rounded-lg font-medium hover:bg-forest-light transition disabled:opacity-50"
+                    className="w-full px-4 py-3 bg-gradient-to-br from-accent-red to-accent-blue text-white rounded-lg font-bold hover:opacity-90 transition disabled:opacity-50"
                   >
                     {rateConfig.blendedRate ? "Generate Proposal" : "Set rate to generate proposal"}
                   </button>
                 ) : (
                   <div className="space-y-3">
-                    <h3 className="font-medium text-gray-900">Proposal Options</h3>
+                    <h3 className="font-medium text-slate-100">Proposal Options</h3>
                     <div className="flex gap-2">
                       <button
                         onClick={() => setProposalPricingMode("per_phase")}
                         className={`flex-1 px-3 py-2 rounded text-sm border transition ${
                           proposalPricingMode === "per_phase"
-                            ? "border-forest bg-forest/10 text-forest"
-                            : "border-sand text-gray-600 hover:border-forest/30"
+                            ? "border-accent-blue bg-accent-blue/10 text-accent-blue"
+                            : "border-border text-muted hover:border-accent-blue/30"
                         }`}
                       >
                         Per phase
@@ -1314,8 +1367,8 @@ export default function ProjectPage() {
                         onClick={() => setProposalPricingMode("retainer")}
                         className={`flex-1 px-3 py-2 rounded text-sm border transition ${
                           proposalPricingMode === "retainer"
-                            ? "border-forest bg-forest/10 text-forest"
-                            : "border-sand text-gray-600 hover:border-forest/30"
+                            ? "border-accent-blue bg-accent-blue/10 text-accent-blue"
+                            : "border-border text-muted hover:border-accent-blue/30"
                         }`}
                       >
                         Monthly retainer
@@ -1323,27 +1376,27 @@ export default function ProjectPage() {
                     </div>
                     {proposalPricingMode === "retainer" && (
                       <div>
-                        <label className="text-xs text-gray-500 block mb-1">Number of months</label>
+                        <label className="text-xs text-dim block mb-1">Number of months</label>
                         <input
                           type="number"
                           min={1}
                           value={retainerMonths}
                           onChange={(e) => setRetainerMonths(parseInt(e.target.value) || 3)}
-                          className="w-20 px-2 py-1 text-sm border border-sand rounded bg-white focus:outline-none focus:ring-1 focus:ring-forest"
+                          className="w-20 px-2 py-1 text-sm border border-border rounded bg-surface focus:outline-none focus:ring-1 focus:ring-accent-blue"
                         />
                       </div>
                     )}
                     <div className="flex gap-2">
                       <button
                         onClick={() => setShowProposalOptions(false)}
-                        className="flex-1 px-3 py-2 text-sm text-gray-500 hover:text-gray-700 transition"
+                        className="flex-1 px-3 py-2 text-sm text-dim hover:text-slate-300 transition"
                       >
                         Cancel
                       </button>
                       <button
                         onClick={handleGenerateProposal}
                         disabled={generatingProposal}
-                        className="flex-1 px-4 py-2 bg-forest text-white rounded-lg text-sm font-medium hover:bg-forest-light transition disabled:opacity-50"
+                        className="flex-1 px-4 py-2 bg-accent-blue text-white rounded-lg text-sm font-medium hover:bg-accent-blue/80 transition disabled:opacity-50"
                       >
                         {generatingProposal ? "Generating..." : "Download PDF"}
                       </button>
@@ -1355,14 +1408,14 @@ export default function ProjectPage() {
 
             {/* Mark as Delivered */}
             {phase === "complete" && (
-              <div className="border-t border-sand/30 pt-4 mt-4">
+              <div className="border-t border-border/30 pt-4 mt-4">
                 <button
                   onClick={handleMarkDelivered}
-                  className="w-full px-4 py-3 bg-gray-800 text-white rounded-lg font-medium hover:bg-gray-700 transition"
+                  className="w-full px-4 py-3 bg-surface text-white rounded-lg font-medium hover:bg-border transition"
                 >
                   Mark as Delivered
                 </button>
-                <p className="text-xs text-gray-400 mt-2 text-center">
+                <p className="text-xs text-faint mt-2 text-center">
                   Unlocks actuals tracking to compare estimates vs. reality
                 </p>
               </div>
@@ -1371,30 +1424,31 @@ export default function ProjectPage() {
             {/* Actuals Tracking */}
             {phase === "delivered" && report && (
               <div>
-                <h2 className="font-bold text-forest mb-4">Actuals vs. Estimates</h2>
+                <h2 className="font-extrabold text-slate-100 mb-1">Actuals vs. Estimates</h2>
+                <p className="text-xs text-faint mb-4">This data is being stored to calibrate AI estimates in the future.</p>
 
                 {/* Project summary */}
-                <div className="mb-6 p-4 rounded-lg border-2 border-forest/20 bg-forest/5">
+                <div className="mb-6 p-4 rounded-lg border-2 border-accent-blue/20 bg-accent-blue/5">
                   <div className="grid grid-cols-3 gap-4 text-center">
                     <div>
-                      <div className="text-xs text-gray-500 mb-1">Estimated</div>
+                      <div className="text-xs text-dim mb-1">Estimated</div>
                       <div className="text-lg font-semibold">{report.project.totalEstimated}h</div>
                     </div>
                     <div>
-                      <div className="text-xs text-gray-500 mb-1">Actual</div>
+                      <div className="text-xs text-dim mb-1">Actual</div>
                       <div className="text-lg font-semibold">
                         {report.project.totalActual !== null ? `${report.project.totalActual}h` : "—"}
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs text-gray-500 mb-1">Accuracy</div>
+                      <div className="text-xs text-dim mb-1">Accuracy</div>
                       <div className={`text-lg font-semibold ${report.project.accuracyScore !== null ? (report.project.accuracyScore >= 70 ? "text-green-600" : report.project.accuracyScore >= 40 ? "text-yellow-600" : "text-red-600") : ""}`}>
                         {report.project.accuracyScore !== null ? `${report.project.accuracyScore}/100` : "—"}
                       </div>
                     </div>
                   </div>
                   {report.project.variancePercent !== null && (
-                    <p className="text-sm text-gray-600 text-center mt-3">
+                    <p className="text-sm text-muted text-center mt-3">
                       This project came in {Math.abs(report.project.variancePercent).toFixed(1)}% {report.project.variancePercent > 0 ? "over" : report.project.variancePercent < 0 ? "under" : "right on"} the realistic estimate
                     </p>
                   )}
@@ -1404,7 +1458,7 @@ export default function ProjectPage() {
                 {report.phases.map((phaseData) => (
                   <div key={phaseData.phase} className="mb-6">
                     <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-medium text-gray-900">{phaseData.phase}</h3>
+                      <h3 className="font-medium text-slate-100">{phaseData.phase}</h3>
                       {phaseData.totals.variancePercent !== null && (
                         <span className={`text-xs font-medium px-2 py-0.5 rounded ${varianceBgColor(phaseData.totals.variancePercent)} ${varianceColor(phaseData.totals.variancePercent)}`}>
                           {phaseData.totals.variancePercent > 0 ? "+" : ""}{phaseData.totals.variancePercent.toFixed(1)}%
@@ -1414,11 +1468,11 @@ export default function ProjectPage() {
                     <div className="space-y-1">
                       {phaseData.items.map((item) => (
                         <div key={item.id}>
-                          <div className="flex items-center justify-between text-sm py-1.5 px-2 rounded hover:bg-cream/50 group">
-                            <span className="text-gray-700 flex-1">{item.deliverable}</span>
-                            <div className="flex items-center gap-3 text-xs text-gray-500">
+                          <div className="flex items-center justify-between text-sm py-1.5 px-2 rounded hover:bg-surface/50 group">
+                            <span className="text-slate-300 flex-1">{item.deliverable}</span>
+                            <div className="flex items-center gap-3 text-xs text-dim">
                               <span>{item.optimisticHours} — {item.likelyHours} — {item.pessimisticHours}h</span>
-                              <span className="text-gray-300">|</span>
+                              <span className="text-border">|</span>
                               {item.actualHours !== null ? (
                                 <span
                                   className={`font-medium cursor-pointer ${varianceColor(item.variancePercent)}`}
@@ -1438,7 +1492,7 @@ export default function ProjectPage() {
                                     setEditActualHours(item.likelyHours);
                                     setEditActualNotes("");
                                   }}
-                                  className="text-forest hover:text-forest-light font-medium"
+                                  className="text-accent-blue hover:text-accent-blue/80 font-medium"
                                 >
                                   Log actual
                                 </button>
@@ -1448,10 +1502,10 @@ export default function ProjectPage() {
 
                           {/* Inline actual entry/edit */}
                           {editingActualItemId === item.id && (
-                            <div className="mx-2 mb-2 p-3 bg-cream/50 rounded-lg border border-sand/50">
+                            <div className="mx-2 mb-2 p-3 bg-navy/50 rounded-lg border border-border/50">
                               <div className="flex items-center gap-3 mb-2">
                                 <div className="flex-1">
-                                  <label className="text-xs text-gray-500 block mb-1">Actual hours</label>
+                                  <label className="text-xs text-dim block mb-1">Actual hours</label>
                                   <input
                                     type="number"
                                     min={0}
@@ -1459,37 +1513,37 @@ export default function ProjectPage() {
                                     onChange={(e) => setEditActualHours(parseInt(e.target.value) || 0)}
                                     autoFocus
                                     onKeyDown={(e) => { if (e.key === "Enter") handleLogActual(item.id); if (e.key === "Escape") setEditingActualItemId(null); }}
-                                    className="w-full px-2 py-1 text-sm border border-sand rounded bg-white focus:outline-none focus:ring-1 focus:ring-forest"
+                                    className="w-full px-2 py-1 text-sm border border-border rounded bg-surface focus:outline-none focus:ring-1 focus:ring-accent-blue"
                                   />
                                 </div>
-                                <div className="text-xs text-gray-400 pt-4">
+                                <div className="text-xs text-faint pt-4">
                                   vs. {item.likelyHours}h estimated
                                 </div>
                               </div>
                               {showNotes.has(item.id) || editActualNotes ? (
                                 <div className="mb-2">
-                                  <label className="text-xs text-gray-500 block mb-1">Notes (why over/under?)</label>
+                                  <label className="text-xs text-dim block mb-1">Notes (why over/under?)</label>
                                   <input
                                     value={editActualNotes}
                                     onChange={(e) => setEditActualNotes(e.target.value)}
                                     placeholder="e.g., Extra stakeholder meetings, simpler than expected..."
-                                    className="w-full px-2 py-1 text-xs border border-sand rounded bg-white focus:outline-none focus:ring-1 focus:ring-forest"
+                                    className="w-full px-2 py-1 text-xs border border-border rounded bg-surface focus:outline-none focus:ring-1 focus:ring-accent-blue"
                                   />
                                 </div>
                               ) : (
                                 <button
                                   onClick={() => setShowNotes((prev) => new Set([...prev, item.id]))}
-                                  className="text-xs text-gray-400 hover:text-forest mb-2"
+                                  className="text-xs text-faint hover:text-accent-blue mb-2"
                                 >
                                   + add note
                                 </button>
                               )}
                               <div className="flex justify-end gap-2">
-                                <button onClick={() => setEditingActualItemId(null)} className="text-xs text-gray-400 hover:text-gray-600">Cancel</button>
+                                <button onClick={() => setEditingActualItemId(null)} className="text-xs text-faint hover:text-muted">Cancel</button>
                                 <button
                                   onClick={() => handleLogActual(item.id)}
                                   disabled={editActualHours <= 0}
-                                  className="text-xs text-forest font-medium disabled:opacity-50"
+                                  className="text-xs text-accent-blue font-medium disabled:opacity-50"
                                 >
                                   {item.actualHours !== null ? "Update" : "Save"}
                                 </button>
@@ -1499,7 +1553,7 @@ export default function ProjectPage() {
                         </div>
                       ))}
                     </div>
-                    <div className="flex justify-between text-xs text-gray-500 mt-2 px-2 pt-1 border-t border-sand/30">
+                    <div className="flex justify-between text-xs text-dim mt-2 px-2 pt-1 border-t border-border/30">
                       <span className="font-medium">{phaseData.phase} subtotal</span>
                       <span>
                         {phaseData.totals.estimatedLikely}h est.

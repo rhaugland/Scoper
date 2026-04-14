@@ -39,55 +39,56 @@ export default function DashboardPage() {
   }
 
   const statusColors: Record<string, string> = {
-    draft: "bg-sand text-gray-700",
-    scoping: "bg-sage/30 text-forest",
-    complete: "bg-forest/20 text-forest",
-    proposal_sent: "bg-forest text-white",
+    draft: "bg-surface text-muted",
+    scoping: "bg-accent-blue/10 text-accent-blue",
+    complete: "bg-accent-blue/20 text-accent-blue",
+    proposal_sent: "bg-gradient-to-br from-accent-red to-accent-blue text-white",
+    delivered: "bg-green-500/20 text-green-400",
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-cream flex items-center justify-center">
-        <p className="text-gray-500">Loading...</p>
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-muted">Loading...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-cream">
+    <div className="min-h-screen">
       <div className="max-w-3xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-8">
-          <h1 className="text-2xl font-bold text-forest">Scoper</h1>
+          <h1 className="text-2xl font-black bg-gradient-to-br from-accent-red to-accent-blue bg-clip-text text-transparent">slushie.swirl</h1>
           <button
             onClick={() => setShowNew(true)}
-            className="px-4 py-2 bg-forest text-white rounded-lg hover:bg-forest-light transition"
+            className="px-4 py-2 bg-gradient-to-br from-accent-red to-accent-blue text-white rounded-lg font-bold hover:opacity-90 transition"
           >
             New project
           </button>
         </div>
 
         {showNew && (
-          <form onSubmit={handleCreate} className="mb-6 p-4 bg-white rounded-lg border border-sand space-y-3">
+          <form onSubmit={handleCreate} className="mb-6 p-4 bg-surface rounded-xl border border-border space-y-3">
             <input
               type="text"
               placeholder="Project name"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               required
-              className="w-full px-3 py-2 rounded border border-sand focus:outline-none focus:ring-2 focus:ring-forest"
+              className="w-full px-3 py-2 rounded-lg border border-border bg-navy text-slate-100 placeholder:text-faint focus:outline-none focus:ring-2 focus:ring-accent-blue"
             />
             <input
               type="text"
               placeholder="Client name (optional)"
               value={newClient}
               onChange={(e) => setNewClient(e.target.value)}
-              className="w-full px-3 py-2 rounded border border-sand focus:outline-none focus:ring-2 focus:ring-forest"
+              className="w-full px-3 py-2 rounded-lg border border-border bg-navy text-slate-100 placeholder:text-faint focus:outline-none focus:ring-2 focus:ring-accent-blue"
             />
             <div className="flex gap-2">
-              <button type="submit" className="px-4 py-2 bg-forest text-white rounded hover:bg-forest-light transition">
+              <button type="submit" className="px-4 py-2 bg-accent-blue text-white rounded-lg font-medium hover:bg-accent-blue/80 transition">
                 Create
               </button>
-              <button type="button" onClick={() => setShowNew(false)} className="px-4 py-2 text-gray-600 hover:text-gray-900">
+              <button type="button" onClick={() => setShowNew(false)} className="px-4 py-2 text-muted hover:text-slate-100">
                 Cancel
               </button>
             </div>
@@ -95,7 +96,7 @@ export default function DashboardPage() {
         )}
 
         {projects.length === 0 ? (
-          <div className="text-center py-16 text-gray-500">
+          <div className="text-center py-16 text-muted">
             <p className="text-lg mb-2">No projects yet</p>
             <p>Create your first project to start scoping.</p>
           </div>
@@ -105,15 +106,15 @@ export default function DashboardPage() {
               <button
                 key={p.id}
                 onClick={() => router.push(`/project/${p.id}`)}
-                className="w-full text-left p-4 bg-white rounded-lg border border-sand hover:border-forest/30 transition flex items-center justify-between"
+                className="w-full text-left p-4 bg-surface rounded-xl border border-border hover:border-accent-blue/30 transition flex items-center justify-between"
               >
                 <div>
-                  <span className="font-medium text-gray-900">{p.name}</span>
+                  <span className="font-medium text-slate-100">{p.name}</span>
                   {p.clientName && (
-                    <span className="ml-2 text-gray-500">— {p.clientName}</span>
+                    <span className="ml-2 text-muted">— {p.clientName}</span>
                   )}
                 </div>
-                <span className={`text-xs px-2 py-1 rounded-full ${statusColors[p.status] ?? "bg-gray-100"}`}>
+                <span className={`text-xs px-2 py-1 rounded-full font-medium ${statusColors[p.status] ?? "bg-surface text-muted"}`}>
                   {p.status.replace("_", " ")}
                 </span>
               </button>
