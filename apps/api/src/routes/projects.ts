@@ -69,6 +69,21 @@ projectsRouter.patch("/:id", async (c) => {
     return c.json({ error: "Not found" }, 404);
   }
 
+  // Validate status transitions
+  if (status) {
+    const validTransitions: Record<string, string[]> = {
+      draft: ["scoping"],
+      scoping: ["complete"],
+      complete: ["delivered", "proposal_sent"],
+      proposal_sent: ["delivered"],
+      delivered: [],
+    };
+    const allowed = validTransitions[existing.status] ?? [];
+    if (!allowed.includes(status)) {
+      return c.json({ error: `Cannot transition from "${existing.status}" to "${status}"` }, 400);
+    }
+  }
+
   const [updated] = await db
     .update(projects)
     .set({
